@@ -4,9 +4,11 @@ services:
   web:
     build: .
     env_file:
-      - .env
+      - .env        # injects all secrets into container
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app      # live reload if needed
     command: >
       sh -c "python manage.py collectstatic --noinput &&
              gunicorn AgentTrader.wsgi:application --bind 0.0.0.0:8000"
-    ports:
-      - "8000:8000"

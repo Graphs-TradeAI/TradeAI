@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from sklearn.preprocessing import StandardScaler
-from django.conf import settings
+
 
 # Add MLmodels to path to allow imports
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

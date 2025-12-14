@@ -27,6 +27,7 @@ SECRET_KEY = config('SECRET_KEY')
 GROQ_API_KEY = config('GROQ_API_KEY')
 TWELVE_DATA_API_KEY = config('TWELVE_DATA_API_KEY')
 
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', cast=bool)
 

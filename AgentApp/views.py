@@ -10,12 +10,11 @@ import sys
 from .inference import ModelInference
 from .llm_service import LLMService
 from decouple import config
-
+from django.conf import settings
 # Initialize services (lazy loading or global)
 # Note: In production, handle API keys securely.
 # We'll assume they are in env or passed here.
-TWELVE_DATA_API_KEY = config('TWELVE_DATA_API_KEY')
-GROQ_API_KEY = config('GROQ_API_KEY')
+
 
 def signup_view(request):
     if request.method == 'POST':

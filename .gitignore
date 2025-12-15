@@ -7,8 +7,6 @@ env/
 .env
 
 # Caches & compiled
-__pycache__/
-*.pyc
 *.pyo
 *.pyd
 *.pkl

@@ -98,7 +98,7 @@ class ModelInference:
 
         # Feature columns: All except timestamp. 
         # Note: We INCLUDE future_close because the model expects it.
-        feature_cols = [c for c in df_features.columns if c not in ["timestamp"]]
+        feature_cols = [c for c in df_features.columns if c not in ["timestamp","future_close"]]
         
         scaler = StandardScaler()
         scaler.fit(df_features[feature_cols])

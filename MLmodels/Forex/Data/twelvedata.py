@@ -8,17 +8,7 @@ class TwelveDataClient:
     def __init__(self, api_key: str):
         self.api_key = api_key
 
-    def get_forex_history(self, symbol="AUD/USD", interval="30min", output_size=5000):
-        """
-        Fetch historical OHLCV data from TwelveData for training.
-        Args:
-            symbol: Forex pair symbol e.g. 'USD/CHF'
-            interval: '1min', '5min', '15min', '1h', '4h', '1day'
-            output_size: number of candles to fetch (max depends on plan)
-
-        Returns:
-            Pandas DataFrame with OHLCV data
-        """
+    def get_forex_history(self, symbol="GBP/USD", interval="30min", output_size=5000):
 
         url = f"{self.BASE_URL}/time_series"
         params = {

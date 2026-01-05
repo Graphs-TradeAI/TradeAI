@@ -24,9 +24,9 @@ def build_forex_feature_set(df: pd.DataFrame) -> pd.DataFrame:
     df["adx_14"] = ADXIndicator(df["high"], df["low"], df["close"], window=14).adx()
 
     # --- Momentum Indicators ---
-    #df["rsi_14"] = RSIIndicator(df["close"], window=14).rsi()
-    #df["stoch_k"] = StochasticOscillator(df["high"], df["low"], df["close"], window=14).stoch()
-    #df["stoch_d"] = StochasticOscillator(df["high"], df["low"], df["close"], window=14).stoch_signal()
+    df["rsi_14"] = RSIIndicator(df["close"], window=14).rsi()
+    df["stoch_k"] = StochasticOscillator(df["high"], df["low"], df["close"], window=14).stoch()
+    df["stoch_d"] = StochasticOscillator(df["high"], df["low"], df["close"], window=14).stoch_signal()
 
     # --- Volatility Indicators ---
     bb = BollingerBands(df["close"], window=20, window_dev=2)

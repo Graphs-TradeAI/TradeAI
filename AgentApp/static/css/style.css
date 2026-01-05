@@ -149,7 +149,9 @@ main {
     line-height: 1.5;
     font-size: 0.9rem;
     position: relative;
+    background-color: #0a0b0c;
     animation: fadeIn 0.3s ease-out;
+    color: wheat;
 }
 
 @keyframes fadeIn {

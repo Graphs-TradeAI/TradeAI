@@ -11,11 +11,7 @@ from .inference import ModelInference
 from .llm_service import LLMService
 from decouple import config
 from django.conf import settings
-# Initialize services (lazy loading or global)
-# Note: In production, handle API keys securely.
-# We'll assume they are in env or passed here.
-
-
+from .models import Trade
 def signup_view(request):
     if request.method == 'POST':
         form = SignupForm(request.POST)
@@ -100,3 +96,21 @@ def api_chat(request):
             return JsonResponse({"error": str(e)}, status=500)
     
     return JsonResponse({"error": "Invalid method"}, status=405)
+
+
+@csrf_exempt
+def save_signal(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+
+        Trade.objects.create(
+            signal=data["signal"],
+            pair=data["pair"],
+            timeframe=data["timeframe"],
+            price=data["price"],
+            action=data["action"],
+            tp=data["tp"],
+            sl=data["sl"]
+        )
+
+        return JsonResponse({"status": "success"})

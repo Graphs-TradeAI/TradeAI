@@ -6,13 +6,15 @@ import tensorflow as tf
 from sklearn.preprocessing import StandardScaler
 
 
+
 # Add MLmodels to path to allow imports
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.join(BASE_DIR, 'MLmodels', 'Forex'))
 
-from ta.momentum import RSIIndicator, StochasticOscillator
+
 from ta.trend import EMAIndicator, MACD, ADXIndicator
 from ta.volatility import BollingerBands, AverageTrueRange
+from ta.momentum import RSIIndicator, StochasticOscillator
 from Data.twelvedata import TwelveDataClient
 
 class ModelInference:
@@ -41,6 +43,14 @@ class ModelInference:
         df["volatility_10"] = df["return"].rolling(10).std()
         df["volatility_20"] = df["return"].rolling(20).std()
 
+
+
+
+           # --- Momentum Indicators ---
+        df["rsi_14"] = RSIIndicator(df["close"], window=14).rsi()
+        df["stoch_k"] = StochasticOscillator(df["high"], df["low"], df["close"], window=14).stoch()
+        df["stoch_d"] = StochasticOscillator(df["high"], df["low"], df["close"], window=14).stoch_signal()
+
         # --- Trend Indicators ---
         df["ema_7"] = EMAIndicator(df["close"], window=7).ema_indicator()
         df["ema_20"] = EMAIndicator(df["close"], window=20).ema_indicator()
@@ -48,6 +58,7 @@ class ModelInference:
         df["adx_14"] = ADXIndicator(df["high"], df["low"], df["close"], window=14).adx()
 
         # --- Volatility Indicators ---
+        
         bb = BollingerBands(df["close"], window=20, window_dev=2)
         df["bb_upper"] = bb.bollinger_hband()
         df["bb_middle"] = bb.bollinger_mavg()
@@ -115,10 +126,64 @@ class ModelInference:
         predicted_close = prediction[0][0]
         
         current_close = df_features['close'].iloc[-1]
+        ema_7 = df_features['ema_7'].iloc[-1]
+        ema_20 = df_features['ema_20'].iloc[-1]
+        ema_50 = df_features['ema_50'].iloc[-1]
+        adx = df_features['adx_14'].iloc[-1]
+        rsi = df_features['rsi_14'].iloc[-1]
+        stoch_k = df_features['stoch_k'].iloc[-1]
+        stoch_d = df_features['stoch_d'].iloc[-1]
+        volatility_10 = df_features['volatility_10'].iloc[-1]
+        volatility_20 = df_features['volatility_20'].iloc[-1]
         
         # Determine signal
         signal = "BUY" if predicted_close > current_close else "SELL"
+        if ema_7 > ema_20 > ema_50:
+            trend = "bullish"
+        elif ema_7 < ema_20 < ema_50:
+            trend = "bearish"
+        else:
+            trend = "consolidation"
         
+        if volatility_10 > volatility_20:
+            volatility = "high"
+        else:
+            volatility = "low"
+
+        if adx > 40:
+            trend_strength = "very strong"
+        elif adx > 25:
+            trend_strength = "strong"
+        elif adx > 20:
+            trend_strength = "building"
+        else:
+            trend_strength = "weak"
+
+        if rsi >= 65:
+            momentum = "strong bullish"
+        elif rsi > 55:
+            momentum = "bullish"
+        elif rsi <= 35:
+            momentum = "strong bearish"
+        elif rsi < 45:
+            momentum = "bearish"
+        else:
+            momentum = "neutral"
+        
+        if stoch_k > stoch_d and stoch_k < 80:
+            stochastic = "bullish continuation"
+        elif stoch_k < stoch_d and stoch_k > 20:
+            stochastic = "bearish continuation"
+        elif stoch_k > 80:
+            stochastic = "overbought"
+        elif stoch_k < 20:
+            stochastic = "oversold"
+        else:
+            stochastic = "neutral"
+
+
+        
+
         if 'atr_14' in df_features.columns:
             atr = df_features['atr_14'].iloc[-1]
             sl_dist = 1.5 * atr
@@ -142,5 +207,10 @@ class ModelInference:
             "signal": signal,
             "tp": float(tp),
             "sl": float(sl),
-            "confidence": "High"
+            "confidence": "High",
+            "trend": trend,
+            "trend_strength": trend_strength,
+            "momentum": momentum,
+            "stochastic": stochastic,
+            "volatility": volatility,
         }

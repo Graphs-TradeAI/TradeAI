@@ -14,7 +14,7 @@ api_key = "fb941e0ebad44b4caa431760fcc5bef3"
 client = TwelveDataClient(api_key)
 
 df = client.get_forex_history(
-    symbol="GBP/USD",
+    symbol="AUD/USD",
     interval="30min",
     output_size=5000
 )
@@ -67,13 +67,13 @@ model=models.Sequential([
 
 earlystop=EarlyStopping(
     monitor="val_mse",
-    patience=2,
+    patience=4,
     restore_best_weights=True,
     mode='min',
     verbose=1
 )
 modelcheckpoint=ModelCheckpoint(
-    filepath="/home/job/Desktop/projects/TradeAI/MLmodels/Forex/forex_models/GBPUSD/30min/model.keras",
+    filepath="/home/job/Desktop/projects/TradeAI/MLmodels/Forex/forex_models/AUDUSD/30min/model.keras",
     monitor='val_mse',
     save_best_only=True,
     save_weights_only=False,
@@ -99,7 +99,7 @@ model.fit(
     X_train,
     y_train,
     validation_data=(X_test, y_test),
-    epochs=20,
+    epochs=30,
     batch_size=64,
     callbacks=[earlystop,modelcheckpoint]
 )

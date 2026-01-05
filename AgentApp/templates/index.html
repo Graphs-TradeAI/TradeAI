@@ -12,7 +12,7 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="icon" type="image/png" href="{% static 'images/TA1.png' %}">
+    <link rel="icon" type="image/x-icon" href="{% static 'images/favicon1.ico' %}">
 
 </head>
 
@@ -50,11 +50,12 @@
         <div class="input-area">
             <input type="text" id="userInput" placeholder="Enter your trading prompt..." autocomplete="off"
                 autocorrect="on">
+                <button id="saveBtn">Save prediction</button>
             <button id="analyzeBtn" onclick="sendMessage()">Analyze</button>
         </div>
     </div>
 
-    <script src="/static/js/script.js"></script>
+    <script src="{% static 'js/script.js' %}"></script>
 </body>
 
 </html>

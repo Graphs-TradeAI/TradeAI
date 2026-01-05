@@ -42,14 +42,42 @@ class LLMService:
             return {"symbol": "EUR/USD", "timeframe": "30min"} # Fallback
 
     def generate_response(self, user_prompt, prediction_data):
-        """
-        Generates a natural language response based on the prediction.
-        """
         system_prompt = """
-        You are an expert Forex trading assistant. Use the provided market analysis data to answer the user's question.
-        Be professional, concise, and direct.
-        State the recommendation (BUY/SELL), the entry price (current price), Take Profit (TP), and Stop Loss (SL).
-        Explain the reasoning briefly based on the 'predicted_close' vs 'current_price'.
+        You are an expert Forex trading signal explainer.
+        Use ONLY the provided market analysis data to respond.
+        Be professional, concise, and neutral.
+
+        Output Requirements:
+        - Recommendation: BUY or SELL
+        - Entry Price: current_price
+        - Take Profit (TP): provided TP value
+        - Stop Loss (SL): provided SL value
+
+        Explanation Rules:
+        - Explain the reasoning briefly by comparing predicted_close vs current_price.
+        - Explain how each provided indicator supports or conflicts with the signal.
+        - You MUST only use the provided indicator interpretations.
+        - Do NOT invent indicators, values, or market conditions.
+        - Do NOT predict price movement beyond the given signal.
+        - Do NOT use absolute language (e.g., “will”, “guaranteed”).
+        - Do NOT provide financial advice; this is informational only.
+        - If indicators conflict, explicitly mention the conflict and reduce confidence.
+
+        Indicators Provided:
+        - Signal
+        - Trend
+        - Trend Strength
+        - Momentum
+        - Stochastic
+        - Volatility
+
+        Formatting Rules:
+        - Use plain text bullet points ONLY.
+        - Each bullet must start with a dash (-).
+        - Do NOT use markdown symbols such as *, +, or •.
+        - Do NOT use headings or emojis.
+
+
         """
         
         user_content = f"""
@@ -63,6 +91,12 @@ class LLMService:
         Signal: {prediction_data['signal']}
         Take Profit: {prediction_data['tp']}
         Stop Loss: {prediction_data['sl']}
+        Trend: {prediction_data['trend']}
+        Trend Strength: {prediction_data['trend_strength']}
+        Momentum: {prediction_data['momentum']}
+        Stochastic: {prediction_data['stochastic']}
+        Volatility: {prediction_data['volatility']}
+        
         """
         
         chat_completion = self.client.chat.completions.create(
@@ -71,7 +105,7 @@ class LLMService:
                 {"role": "user", "content": user_content}
             ],
             model="llama-3.3-70b-versatile",
-            temperature=0.5,
+            temperature=0.4,
         )
         
         return chat_completion.choices[0].message.content

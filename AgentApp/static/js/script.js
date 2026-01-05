@@ -65,11 +65,24 @@ function addMessage(text, sender) {
     messageDiv.id = 'msg-' + Date.now();
 
     // Convert newlines to breaks
+    
     messageDiv.innerHTML = text.replace(/\n/g, '<br>');
+    function typingEffect(messageDiv) {
+        const text = messageDiv.textContent;
+        let i = 0;
+        const interval = setInterval(() => {
+            messageDiv.textContent = text.substring(0, i) + '_';
+            i++;
+            if (i > text.length) {
+                clearInterval(interval);
+                messageDiv.textContent = text;
+            }
+        }, 100);
+    }
 
     chatArea.appendChild(messageDiv);
     chatArea.scrollTop = chatArea.scrollHeight;
-
+    typingEffect(messageDiv);
     return messageDiv.id;
 }
 

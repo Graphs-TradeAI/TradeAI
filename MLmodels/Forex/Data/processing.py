@@ -14,8 +14,8 @@ def build_forex_feature_set(df: pd.DataFrame) -> pd.DataFrame:
     # --- Price Features ---
     df["return"] = df["close"].pct_change()
     df["log_return"] = np.log(df["close"] / df["close"].shift(1))
-    df["volatility_10"] = df["return"].rolling(10).std()
-    df["volatility_20"] = df["return"].rolling(20).std()
+    df["volatility_10"] = df["log_return"].rolling(10).std()
+    df["volatility_20"] = df["log_return"].rolling(20).std()
 
     # --- Trend Indicators ---
     df["ema_7"] = EMAIndicator(df["close"], window=7).ema_indicator()

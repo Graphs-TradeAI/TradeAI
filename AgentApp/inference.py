@@ -40,8 +40,8 @@ class ModelInference:
         # --- Price Features ---
         df["return"] = df["close"].pct_change()
         df["log_return"] = np.log(df["close"] / df["close"].shift(1))
-        df["volatility_10"] = df["return"].rolling(10).std()
-        df["volatility_20"] = df["return"].rolling(20).std()
+        df["volatility_10"] = df["log_return"].rolling(10).std()
+        df["volatility_20"] = df["log_return"].rolling(20).std()
 
 
 
@@ -109,7 +109,7 @@ class ModelInference:
 
         # Feature columns: All except timestamp. 
         # Note: We INCLUDE future_close because the model expects it.
-        feature_cols = [c for c in df_features.columns if c not in ["timestamp","future_close"]]
+        feature_cols = [c for c in df_features.columns if c not in ["timestamp"]]
         
         scaler = StandardScaler()
         scaler.fit(df_features[feature_cols])
@@ -159,14 +159,10 @@ class ModelInference:
         else:
             trend_strength = "weak"
 
-        if rsi >= 65:
-            momentum = "strong bullish"
-        elif rsi > 55:
-            momentum = "bullish"
-        elif rsi <= 35:
-            momentum = "strong bearish"
-        elif rsi < 45:
-            momentum = "bearish"
+        if rsi >= 70:
+            momentum = "overbought"
+        elif rsi <= 30:
+            momentum = "oversold"
         else:
             momentum = "neutral"
         

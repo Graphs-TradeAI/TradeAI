@@ -13,11 +13,8 @@ api_key = "fb941e0ebad44b4caa431760fcc5bef3"
 
 client = TwelveDataClient(api_key)
 
-df = client.get_forex_history(
-    symbol="AUD/USD",
-    interval="30min",
-    output_size=5000
-)
+df = client.get_forex_history()
+
 df_features = build_forex_feature_set(df)
 
 #data cleaning
@@ -53,7 +50,7 @@ def prepare_lstm_data(df, feature_cols, target_col="future_close", seq_length=50
     return X_train,X_test,y_train,y_test,scaler
 
 
-feature_cols = [c for c in df_features.columns if c not in ["timestamp","future_close"]]
+feature_cols = [c for c in df_features.columns if c not in ["timestamp"]]
 X_train, X_test, y_train, y_test, scaler = prepare_lstm_data(df_features, feature_cols, seq_length=50)
 
 
@@ -73,20 +70,13 @@ earlystop=EarlyStopping(
     verbose=1
 )
 modelcheckpoint=ModelCheckpoint(
-    filepath="/home/job/Desktop/projects/TradeAI/MLmodels/Forex/forex_models/AUDUSD/30min/model.keras",
+    filepath="/home/job/Desktop/projects/TradeAI/MLmodels/Forex/forex_models/USDJPY/30min/model.keras",
     monitor='val_mse',
     save_best_only=True,
     save_weights_only=False,
     verbose=1,
     mode='min'
 )
-
-# Select feature columns (all except timestamp, future_close, target_up)
-
-# Prepare sequences
-
-# Build model
-
 
 model.compile(
     optimizer=keras.optimizers.Adam(learning_rate=0.001),
@@ -99,7 +89,7 @@ model.fit(
     X_train,
     y_train,
     validation_data=(X_test, y_test),
-    epochs=30,
+    epochs=50,
     batch_size=64,
     callbacks=[earlystop,modelcheckpoint]
 )

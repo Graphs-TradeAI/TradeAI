@@ -121,11 +121,7 @@ function addTradeCard(data) {
     chatArea.scrollTop = chatArea.scrollHeight;
 }
 
-function onSignIn(googleUser) {
-    var profile = googleUser.getBasicProfile();
-    console.log('Name: ' + profile.getName());
-    console.log('Email: ' + profile.getEmail()); // This is null if the 'email' scope is not present.
-}
+
 
 
 document.getElementById("saveBtn").addEventListener("click", () => {

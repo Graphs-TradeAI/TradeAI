@@ -180,7 +180,7 @@ main {
     color: #dfd4d4;
     border-bottom-left-radius: 2px;
     border: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow: 0px 0px 20px rgb(7, 87, 7);
+ 
 }
 
 .trade-card {
@@ -757,12 +757,14 @@ button:active {
     font-size: 0.9rem;
 }
 
+
 /* Responsive */
 @media (max-width:600px){
     header{
         display: flex;
         flex-direction: column;
         align-items: flex-start;
+        background-color: rgba(0, 255, 157, 0.05);
     }
     .status-indicator{
         display: flex;
@@ -794,7 +796,7 @@ button:active {
     color: #dfd4d4;
     border-bottom-left-radius: 2px;
     border: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow: 0px 0px 20px rgb(7, 87, 7);
+  
 }
 .input-area{
     display: flex;
@@ -871,6 +873,12 @@ button {
 
 .btn-signup:hover {
     transform: translateY(-2px);
+}
+
+#close_btn{
+    position: fixed;
+    top: 10px;
+    right: 10px;
 }
 
 

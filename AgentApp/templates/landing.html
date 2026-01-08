@@ -1,3 +1,4 @@
+{%load static%}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -11,6 +12,9 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" type="image/x-icon" href="{% static 'images/favicon1.ico' %}">
+    <script src="https://kit.fontawesome.com/116332355d.js" crossorigin="anonymous"></script>
+
 
 
 </head>
@@ -21,6 +25,7 @@
             <div class="logo">
                 Trade<span>AI</span><span class="blink">—</span>
             </div>
+          <!--  <i class="fa-solid fa-bars"></i>-->
 
 
             <nav class="landing-nav">
@@ -29,11 +34,16 @@
                 <a href="#features">Features</a>
                 <a href="#testimonials">Testimonials</a>
                 <a href="#pricing">Pricing</a>
+                <a href="{% url 'get_feedback' %}">Review</a>
+                <!--<i class="fa-solid fa-x" id="close_btn"></i>-->
+
             </nav>
             <div class="auth-buttons">
                 <a href="{% url 'login' %}" class="btn-login">Sign In</a>
                 <a href="{% url 'signup' %}" class="btn-signup">Sign Up</a>
             </div>
+          
+            
         </header>
 
 

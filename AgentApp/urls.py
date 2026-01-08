@@ -10,4 +10,5 @@ urlpatterns = [
     path('forgot-password/', views.forgot_password_view, name='forgot_password'),
     path('api/chat/', views.api_chat, name='api_chat'),
     path('save_signal/', views.save_signal, name='save_signal'),
+    path('get_feedback/', views.get_feedback,name='get_feedback'),
 ]

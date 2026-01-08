@@ -114,3 +114,7 @@ def save_signal(request):
         )
 
         return JsonResponse({"status": "success"})
+    
+
+def get_feedback(request):
+    return render(request,"feedback.html")

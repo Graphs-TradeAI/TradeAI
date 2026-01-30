@@ -51,6 +51,10 @@ def landing_page(request):
         return redirect('dashboard')
     return render(request, 'landing.html')
 
+def demo(request):
+    return render(request,'index.html')
+
+
 @csrf_exempt
 def api_chat(request):
     print("API Chat Request Received")

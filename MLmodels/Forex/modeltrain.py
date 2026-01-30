@@ -1,7 +1,7 @@
 from Data.twelvedata import TwelveDataClient
 from Data.processing import build_forex_feature_set
 import numpy as np
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 import keras
@@ -9,13 +9,12 @@ from keras import models,layers
 from keras.callbacks import ModelCheckpoint,EarlyStopping
 import pandas as pd
 
+
 api_key = "fb941e0ebad44b4caa431760fcc5bef3"
-
 client = TwelveDataClient(api_key)
-
 df = client.get_forex_history()
-
 df_features = build_forex_feature_set(df)
+
 
 #data cleaning
 def clean_data(dataframe):
@@ -32,8 +31,8 @@ def clean_data(dataframe):
     
 clean_data(df_features)
 
-def prepare_lstm_data(df, feature_cols, target_col="future_close", seq_length=50):
-    scaler = StandardScaler()
+def prepare_lstm_data(df, feature_cols, target_col="future_close", seq_length=60):
+    scaler = MinMaxScaler()
     scaled_features = scaler.fit_transform(df[feature_cols])
     
 
@@ -57,7 +56,7 @@ X_train, X_test, y_train, y_test, scaler = prepare_lstm_data(df_features, featur
 model=models.Sequential([
     layers.LSTM(256,return_sequences=True,input_shape=(X_train.shape[1],X_train.shape[2])),
     layers.Dropout(0.2),
-    layers.LSTM(256),
+    layers.LSTM(128),
     layers.Dense(1)
 ])
 
@@ -69,8 +68,9 @@ earlystop=EarlyStopping(
     mode='min',
     verbose=1
 )
+
 modelcheckpoint=ModelCheckpoint(
-    filepath="/home/job/Desktop/projects/TradeAI/MLmodels/Forex/forex_models/USDJPY/30min/model.keras",
+    filepath="/home/job/Desktop/projects/TradeAI/MLmodels/Forex/forex_models/EURUSD/15min/model.keras",
     monitor='val_mse',
     save_best_only=True,
     save_weights_only=False,
@@ -89,7 +89,7 @@ model.fit(
     X_train,
     y_train,
     validation_data=(X_test, y_test),
-    epochs=50,
+    epochs=70,
     batch_size=64,
     callbacks=[earlystop,modelcheckpoint]
 )

@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from django.conf import settings
 
 
@@ -103,7 +103,7 @@ class ModelInference:
         # Build features using custom inference method
         df_features = self._build_features_inference(df)
         
-        seq_length = 50
+        seq_length = 60
         if len(df_features) < seq_length:
              raise ValueError(f"Not enough data points. Need at least {seq_length}")
 
@@ -111,7 +111,7 @@ class ModelInference:
         # Note: We INCLUDE future_close because the model expects it.
         feature_cols = [c for c in df_features.columns if c not in ["timestamp"]]
         
-        scaler = StandardScaler()
+        scaler = MinMaxScaler()
         scaler.fit(df_features[feature_cols])
         
         # Prepare the last sequence

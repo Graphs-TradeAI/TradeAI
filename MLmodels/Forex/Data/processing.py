@@ -48,3 +48,5 @@ def build_forex_feature_set(df: pd.DataFrame) -> pd.DataFrame:
     df = df.dropna().reset_index(drop=True)
 
     return df
+
+

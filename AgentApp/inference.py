@@ -182,7 +182,7 @@ class ModelInference:
 
         if 'atr_14' in df_features.columns:
             atr = df_features['atr_14'].iloc[-1]
-            sl_dist = 1.5 * atr
+            sl_dist = 1.0 * atr
             tp_dist = 2.0 * sl_dist
         else:
             sl_dist = current_close * 0.001
@@ -194,6 +194,7 @@ class ModelInference:
         else:
             sl = current_close + sl_dist
             tp = current_close - tp_dist
+     
             
         return {
             "symbol": symbol,
@@ -210,3 +211,4 @@ class ModelInference:
             "stochastic": stochastic,
             "volatility": volatility,
         }
+        

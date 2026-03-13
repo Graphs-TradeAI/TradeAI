@@ -11,7 +11,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="{% static 'css/style.css'%}">
     <link rel="icon" type="image/x-icon" href="{% static 'images/favicon1.ico' %}">
     <script src="https://kit.fontawesome.com/116332355d.js" crossorigin="anonymous"></script>
 
@@ -40,7 +40,7 @@
             <div class="auth-buttons">
                 <a href="{% url 'login' %}" class="btn-login">Sign In</a>
                 <a href="{% url 'signup' %}" class="btn-signup">Sign Up</a>
-                <a href="{%url  'demo' %}" >Demo</a>
+           
             </div>
           
             
@@ -74,7 +74,7 @@
                             machine learning and AI, and a seasoned professional trader,
                             TradeAI was developed to remove emotional bias from trading.
                             It empowers traders to make data-driven decisions with confidence,
-                            eliminating fear and speculation from every trade.</p>
+                            eliminating fear and speculation.</p>
                     </div>
                     <div class="about-card">
                         <h3>The Mission</h3>
@@ -91,7 +91,7 @@
                             models trained on clean, factual, and historical
                             market data, our trading agent analyzes thousands
                             of data points instantly to deliver optimal trading
-                            signals. With over 18 specialized models covering
+                            signals.A multi-model architecture covering
                             major forex pairs across multiple timeframes,
                             TradeAI provides precise, data-driven insights
                             for confident trading decisions.
@@ -103,7 +103,7 @@
             <!-- Features / Forex Pairs Section -->
             <section id="features" class="section-padding bg-darker">
                 <h2 class="section-title">Supported Markets</h2>
-                <p class="section-desc">Our AI agents are specialized in major liquidity pairs.</p>
+                <p class="section-desc">Our AI models are specialized in major liquidity pairs.</p>
                 <div class="pairs-grid">
                     <div class="pair-card">
                         <div class="pair-icon">€/$</div>
@@ -196,7 +196,7 @@
                     <a href="#">Contact</a>
                 </div>
                 <div class="copyright">
-                    &copy; 2025 TradeAI. All rights reserved.
+                    &copy; 2026 TradeAI. All rights reserved.
                 </div>
             </div>
         </footer>

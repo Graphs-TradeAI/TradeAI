@@ -62,6 +62,7 @@ class LLMService:
         - Do NOT use absolute language (e.g., “will”, “guaranteed”).
         - Do NOT provide financial advice; this is informational only.
         - If indicators conflict, explicitly mention the conflict and reduce confidence.
+        - If indicators support the signal expilictly mention the support and increase the confidence
 
         Indicators Provided:
         - Signal

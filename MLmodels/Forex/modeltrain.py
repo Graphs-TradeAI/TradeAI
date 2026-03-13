@@ -68,9 +68,9 @@ earlystop=EarlyStopping(
     mode='min',
     verbose=1
 )
-
+''
 modelcheckpoint=ModelCheckpoint(
-    filepath="/home/job/Desktop/projects/TradeAI/MLmodels/Forex/forex_models/EURUSD/15min/model.keras",
+    filepath="/home/job/Desktop/projects/TradeAI/MLmodels/Forex/forex_models/USDJPY/1day/model.keras",
     monitor='val_mse',
     save_best_only=True,
     save_weights_only=False,
@@ -79,7 +79,7 @@ modelcheckpoint=ModelCheckpoint(
 )
 
 model.compile(
-    optimizer=keras.optimizers.Adam(learning_rate=0.001),
+    optimizer=keras.optimizers.Adam(learning_rate=0.002),
     loss="mse",
     metrics=["mae","mse"]
 )

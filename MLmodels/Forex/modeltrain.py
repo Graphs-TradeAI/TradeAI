@@ -1,7 +1,7 @@
 from Data.twelvedata import TwelveDataClient
 from Data.processing import build_forex_feature_set
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler,StandardScaler
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 import keras
@@ -32,7 +32,7 @@ def clean_data(dataframe):
 clean_data(df_features)
 
 def prepare_lstm_data(df, feature_cols, target_col="future_close", seq_length=60):
-    scaler = MinMaxScaler()
+    scaler = StandardScaler()
     scaled_features = scaler.fit_transform(df[feature_cols])
     
 
@@ -70,7 +70,7 @@ earlystop=EarlyStopping(
 )
 ''
 modelcheckpoint=ModelCheckpoint(
-    filepath="/home/job/Desktop/projects/TradeAI/MLmodels/Forex/forex_models/USDJPY/1day/model.keras",
+    filepath="/home/job/Desktop/projects/TradeAI/MLmodels/Forex/forex_models/AUDUSD/15min/model.keras",
     monitor='val_mse',
     save_best_only=True,
     save_weights_only=False,
@@ -89,7 +89,7 @@ model.fit(
     X_train,
     y_train,
     validation_data=(X_test, y_test),
-    epochs=70,
+    epochs=120,
     batch_size=64,
     callbacks=[earlystop,modelcheckpoint]
 )

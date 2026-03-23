@@ -883,3 +883,77 @@ button {
 
 
 }
+
+/* Metrics Section Styles */
+.metrics-container {
+    margin-top: 30px;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(0, 255, 157, 0.2);
+    border-radius: 12px;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.metrics-title {
+    font-size: 1.1rem;
+    color: var(--accent-color);
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    border-bottom: 1px solid rgba(0, 255, 157, 0.1);
+    padding-bottom: 10px;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 15px;
+}
+
+.metric-card {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+    border-color: var(--accent-color);
+    background: rgba(0, 255, 157, 0.05);
+}
+
+.metric-label {
+    display: block;
+    font-size: 0.75rem;
+    color: #888;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.metric-value {
+    display: block;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #fff;
+    font-family: var(--font-mono);
+}
+
+.metric-value.positive {
+    color: var(--accent-color);
+}
+
+.metric-value.negative {
+    color: var(--loss-color);
+}
+
+@media (max-width: 600px) {
+    .metrics-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .metric-value {
+        font-size: 1rem;
+    }
+}

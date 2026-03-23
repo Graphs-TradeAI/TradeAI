@@ -3,8 +3,9 @@ import sys
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from sklearn.preprocessing import StandardScaler
-
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import precision_recall_fscore_support, accuracy_score
+from django.conf import settings
 
 
 # Add MLmodels to path to allow imports
@@ -210,5 +211,110 @@ class ModelInference:
             "momentum": momentum,
             "stochastic": stochastic,
             "volatility": volatility,
+        }
+
+    def calculate_model_metrics(self, symbol, timeframe, n_backtest=100):
+        """
+        Backtests the model on the last n_backtest candles to calculate performance metrics.
+        """
+        model_path = self.get_model_path(symbol, timeframe)
+        if not os.path.exists(model_path):
+            return None
+
+        # Load model
+        model = tf.keras.models.load_model(model_path)
+
+        # Fetch data (use 5000 as in predict to ensure enough data for indicators and backtest)
+        df = self.client.get_forex_history(
+            symbol=symbol,
+            interval=timeframe,
+            output_size=1000 # Reduced for performance during backtest, but enough for indicators
+        )
+
+        if df.empty or len(df) < (60 + n_backtest):
+            return None
+
+        # Build features
+        df_features = self._build_features_inference(df)
+        
+        seq_length = 60
+        feature_cols = [c for c in df_features.columns if c not in ["timestamp"]]
+        
+        # Prepare all sequences for backtest at once for speed
+        total_len = len(df_features)
+        X_backtest = []
+        actual_outcomes = []
+        previous_closes = []
+        
+        for i in range(total_len - n_backtest, total_len):
+            # Sequence ending at i-1 to predict candle i
+            seq = df_features[feature_cols].iloc[i-seq_length:i].values
+            X_backtest.append(seq)
+            actual_outcomes.append(df_features['close'].iloc[i])
+            previous_closes.append(df_features['close'].iloc[i-1])
+
+        X_backtest = np.array(X_backtest)
+        
+        # Scale each sequence (using local scaling to avoid future bias in metrics)
+        scaler = MinMaxScaler()
+        X_backtest_scaled = []
+        for seq in X_backtest:
+            scaler.fit(seq)
+            X_backtest_scaled.append(scaler.transform(seq))
+        X_backtest_scaled = np.array(X_backtest_scaled)
+
+        # Bulk predict
+        preds = model.predict(X_backtest_scaled, verbose=0).flatten()
+
+        # --- Calculate Metrics ---
+        # 1. Directional Metrics
+        pred_dirs = [1 if p > prev else 0 for p, prev in zip(preds, previous_closes)]
+        actual_dirs = [1 if act > prev else 0 for act, prev in zip(actual_outcomes, previous_closes)]
+        
+        acc = accuracy_score(actual_dirs, pred_dirs)
+        precision, recall, f1, _ = precision_recall_fscore_support(actual_dirs, pred_dirs, average='binary', zero_division=0)
+        
+        # 2. Profitability Metrics
+        # Simple strategy: BUY if pred > current, SELL otherwise
+        profits = []
+        for i in range(len(preds)):
+            signal = 1 if preds[i] > previous_closes[i] else 0
+            # If BUY, profit = actual_outcome - previous_close
+            # If SELL, profit = previous_close - actual_outcome
+            if signal == 1:
+                profit = actual_outcomes[i] - previous_closes[i]
+            else:
+                profit = previous_closes[i] - actual_outcomes[i]
+            profits.append(profit)
+        
+        profits = np.array(profits)
+        win_rate = (profits > 0).mean()
+        
+        avg_win = profits[profits > 0].mean() if any(profits > 0) else 0
+        avg_loss = abs(profits[profits < 0].mean()) if any(profits < 0) else 0
+        rr_ratio = avg_win / avg_loss if avg_loss != 0 else (avg_win if avg_win > 0 else 0)
+        
+        expectancy = (win_rate * avg_win) - ((1 - win_rate) * avg_loss)
+        
+        # 3. Sharpe Ratio
+        # Assuming returns = profit / previous_close
+        returns = profits / np.array(previous_closes)
+        mean_return = returns.mean()
+        std_return = returns.std()
+        
+        # Annualization factor for 1h (roughly)
+        # 24 hours * 252 trading days = 6048
+        sharpe = (mean_return / std_return * np.sqrt(6048)) if std_return != 0 else 0
+
+        return {
+            "directional_accuracy": float(acc),
+            "precision": float(precision),
+            "recall": float(recall),
+            "f1_score": float(f1),
+            "win_rate": float(win_rate),
+            "risk_reward": float(rr_ratio),
+            "expectancy": float(expectancy),
+            "sharpe_ratio": float(sharpe),
+            "n_backtest": n_backtest
         }
         

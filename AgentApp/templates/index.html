@@ -38,11 +38,19 @@
                 <div class="message bot">
                     Welcome to TradeAI. I am ready to analyze the Forex markets for you.
                     <br><br>
-                    Supported Pairs: EUR/USD, GBP/USD, USD/JPY
+                    Supported Pairs : All major Pairs 
                     <br>
-                    Timeframes: 15min, 30min, 1h, 4h,2h,5min
+                    Timeframes: 15min, 30min, 1h,  
                     <br><br>
-                    Example: "Should I buy EUR/USD on the 30min timeframe?"
+                    Example: "Should I buy or sell EUR/USD on the 30min timeframe?"
+                </div>
+            </div>
+            
+            <!-- Trading Metrics Section -->
+            <div id="metrics-container" class="metrics-container" style="display: none;">
+                <h3 class="metrics-title">Model Performance Metrics</h3>
+                <div class="metrics-grid" id="metricsGrid">
+                    <!-- Metrics will be injected here -->
                 </div>
             </div>
         </main>
@@ -50,7 +58,7 @@
         <div class="input-area">
             <input  type="text" id="userInput" placeholder="Enter your trading prompt..." autocomplete="off"
                 autocorrect="on">
-                <button id="saveBtn">Save prediction</button>
+                <!--<button id="saveBtn">Save prediction</button>-->
             <button id="analyzeBtn" onclick="sendMessage()">Analyze</button>
         </div>
     </div>

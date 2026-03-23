@@ -46,6 +46,9 @@ async function sendMessage() {
             if (data.data) {
                 addTradeCard(data.data);
             }
+            if (data.metrics) {
+                updateMetricsUI(data.metrics);
+            }
         } else {
             addMessage(`Error: ${data.error}`, 'bot');
         }
@@ -162,3 +165,30 @@ document.getElementById("saveBtn").addEventListener("click", () => {
 
    
 
+function updateMetricsUI(metrics) {
+    const container = document.getElementById('metrics-container');
+    const grid = document.getElementById('metricsGrid');
+    
+    if (!container || !grid) return;
+    
+    container.style.display = 'block';
+    
+    const metricItems = [
+        { label: 'Hit Rate', value: (metrics.directional_accuracy * 100).toFixed(1) + '%', class: metrics.directional_accuracy > 0.5 ? 'positive' : '' },
+        { label: 'F1 Score', value: metrics.f1_score.toFixed(2), class: metrics.f1_score > 0.5 ? 'positive' : '' },
+        { label: 'Sharpe', value: metrics.sharpe_ratio.toFixed(2), class: metrics.sharpe_ratio > 1 ? 'positive' : '' },
+        { label: 'Win Rate', value: (metrics.win_rate * 100).toFixed(1) + '%', class: metrics.win_rate > 0.5 ? 'positive' : '' },
+        { label: 'RR Ratio', value: metrics.risk_reward.toFixed(2), class: metrics.risk_reward > 1.5 ? 'positive' : '' },
+        { label: 'Expectancy', value: metrics.expectancy.toFixed(4), class: metrics.expectancy > 0 ? 'positive' : 'negative' }
+    ];
+    
+    grid.innerHTML = metricItems.map(item => `
+        <div class="metric-card">
+            <span class="metric-label">${item.label}</span>
+            <span class="metric-value ${item.class}">${item.value}</span>
+        </div>
+    `).join('');
+    
+    // Scroll to metrics
+    container.scrollIntoView({ behavior: 'smooth' });
+}

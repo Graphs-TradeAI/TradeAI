@@ -89,9 +89,13 @@ def api_chat(request):
             # 3. Generate Response
             response_text = llm_service.generate_response(user_prompt, prediction_data)
             
+            # 4. Calculate Metrics (Dynamic)
+            metrics = inference_service.calculate_model_metrics(symbol, timeframe)
+            
             return JsonResponse({
                 "response": response_text,
-                "data": prediction_data
+                "data": prediction_data,
+                "metrics": metrics
             })
             
         except Exception as e:

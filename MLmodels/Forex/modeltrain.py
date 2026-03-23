@@ -70,7 +70,7 @@ earlystop=EarlyStopping(
 )
 ''
 modelcheckpoint=ModelCheckpoint(
-    filepath="/home/job/Desktop/projects/TradeAI/MLmodels/Forex/forex_models/AUDUSD/15min/model.keras",
+    filepath="/home/job/Desktop/projects/TradeAI/MLmodels/Forex/forex_models/EURCHF/5min/model.keras",
     monitor='val_mse',
     save_best_only=True,
     save_weights_only=False,
@@ -89,7 +89,7 @@ model.fit(
     X_train,
     y_train,
     validation_data=(X_test, y_test),
-    epochs=120,
+    epochs=180,
     batch_size=64,
     callbacks=[earlystop,modelcheckpoint]
 )

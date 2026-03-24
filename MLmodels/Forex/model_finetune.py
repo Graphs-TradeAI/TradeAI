@@ -10,6 +10,7 @@ from keras.callbacks import ModelCheckpoint, EarlyStopping
 import pandas as pd
 import argparse
 import os
+import pickle
 
 def fine_tune_model(symbol="AUD/USD", interval="15min", epochs=20, batch_size=64, learning_rate=0.0001):
     api_key = "fb941e0ebad44b4caa431760fcc5bef3"
@@ -33,9 +34,9 @@ def fine_tune_model(symbol="AUD/USD", interval="15min", epochs=20, batch_size=64
     model = models.load_model(model_path)
     
     # Preparation for LSTM (same logic as modeltrain.py)
-    feature_cols = [c for c in df_features.columns if c not in ["timestamp"]]
+    feature_cols = [c for c in df_features.columns if c not in ["timestamp", "future_close"]]
     
-    def prepare_lstm_data(df, feature_cols, target_col="future_close", seq_length=50):
+    def prepare_lstm_data(df, feature_cols, target_col="future_close", seq_length=60):
         scaler = StandardScaler()
         scaled_features = scaler.fit_transform(df[feature_cols])
         
@@ -48,9 +49,9 @@ def fine_tune_model(symbol="AUD/USD", interval="15min", epochs=20, batch_size=64
         y = np.array(y)
         
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
-        return X_train, X_test, y_train, y_test, scaler
+        return X_train, X_test, y_train, y_test, scaler, seq_length
 
-    X_train, X_test, y_train, y_test, scaler = prepare_lstm_data(df_features, feature_cols)
+    X_train, X_test, y_train, y_test, scaler, seq_length = prepare_lstm_data(df_features, feature_cols)
     
     # Re-compile with a lower learning rate for fine-tuning
     model.compile(
@@ -85,6 +86,11 @@ def fine_tune_model(symbol="AUD/USD", interval="15min", epochs=20, batch_size=64
         batch_size=batch_size,
         callbacks=[earlystop, modelcheckpoint]
     )
+    with open(os.path.join(model_dir, "scaler.pkl"), "wb") as f:
+        pickle.dump(scaler, f)
+    with open(os.path.join(model_dir, "model_meta.txt"), "w", encoding="utf-8") as f:
+        f.write(f"seq_length={seq_length}\n")
+        f.write("feature_cols=" + ",".join(feature_cols) + "\n")
     print(f"Fine-tuning complete. Model saved to {model_path}")
 
 if __name__ == "__main__":

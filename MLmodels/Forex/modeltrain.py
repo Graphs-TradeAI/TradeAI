@@ -93,4 +93,3 @@ model.fit(
     batch_size=64,
     callbacks=[earlystop,modelcheckpoint]
 )
-

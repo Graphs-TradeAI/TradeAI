@@ -15,6 +15,7 @@ import dj_database_url
 import os
 from decouple import config
 
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -84,7 +85,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'tradeaidb',
         'USER': 'tradeai_user',
-        'PASSWORD': 'Jobuser123.', # CHANGE THIS: Update with your Postgres password
+        'PASSWORD': config('DB_PASSWORD'), # CHANGE THIS: Update with your Postgres password
         'HOST': 'localhost',
         'PORT': '5432',
     }

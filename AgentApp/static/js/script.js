@@ -27,10 +27,10 @@ async function sendMessage() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
             },
             body: JSON.stringify({
-                prompt: messageText,
-                api_key: ''
+                prompt: messageText
             })
         });
 
@@ -67,21 +67,14 @@ function addMessage(text, sender) {
     messageDiv.classList.add('message', sender);
     messageDiv.id = 'msg-' + Date.now();
 
-    // Convert newlines to breaks
-    
-    messageDiv.innerHTML = text.replace(/\n/g, '<br>');
-    function typingEffect(messageDiv) {
-        const text = messageDiv.textContent;
-        let i = 0;
-        const interval = setInterval(() => {
-            messageDiv.textContent = text.substring(0, i) + '_';
-            i++;
-            if (i > text.length) {
-                clearInterval(interval);
-                messageDiv.textContent = text;
-            }
-        }, 100);
-    }
+    // Render as plain text to avoid HTML/script injection.
+    const lines = String(text).split('\n');
+    lines.forEach((line, idx) => {
+        messageDiv.appendChild(document.createTextNode(line));
+        if (idx < lines.length - 1) {
+            messageDiv.appendChild(document.createElement('br'));
+        }
+    });
 
     chatArea.appendChild(messageDiv);
     chatArea.scrollTop = chatArea.scrollHeight;
@@ -140,7 +133,9 @@ function addTradeCard(data) {
 
 
 
-document.getElementById("saveBtn").addEventListener("click", () => {
+const saveBtn = document.getElementById("saveBtn");
+if (saveBtn) {
+saveBtn.addEventListener("click", () => {
     const cards = document.querySelectorAll(".trade-card");
 
     if (!cards.length) {
@@ -174,6 +169,7 @@ document.getElementById("saveBtn").addEventListener("click", () => {
     .then(data => console.log("Saved:", data))
     .catch(err => console.error(err));
 });
+}
 
 
    
@@ -204,4 +200,12 @@ function updateMetricsUI(metrics) {
     
     // Scroll to metrics
     container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function getCookie(name) {
+    const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith(name + '='))
+        ?.split('=')[1];
+    return cookieValue || '';
 }

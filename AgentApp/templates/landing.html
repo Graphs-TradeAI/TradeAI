@@ -146,6 +146,33 @@
                 </div>
             </section>
 
+            <!-- Performance Section -->
+            <section id="performance" class="section-padding bg-darker">
+                <h2 class="section-title">Verified AI Performance</h2>
+                <p class="section-desc">Live backtest results for EUR/JPY on 1h timeframe.</p>
+                <div class="metrics-container" style="max-width: 1000px; margin: 0 auto; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(0, 255, 157, 0.2); border-radius: 12px; padding: 30px;">
+                    <h3 class="metrics-title" style="margin-bottom: 25px;">Model Stats (Last {{ backtest_metrics.n_bars }} Bars)</h3>
+                    <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px;">
+                        <div class="metric-card" style="background: rgba(255, 255, 255, 0.03); padding: 20px; border-radius: 10px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.05);">
+                            <span class="metric-label" style="display: block; font-size: 0.8rem; color: #888; margin-bottom: 10px; text-transform: uppercase;">Directional Accuracy</span>
+                            <span class="metric-value" style="display: block; font-size: 1.5rem; font-weight: 700; color: #fff;">{{ backtest_metrics.accuracy }}</span>
+                        </div>
+                        <div class="metric-card" style="background: rgba(255, 255, 255, 0.03); padding: 20px; border-radius: 10px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.05);">
+                            <span class="metric-label" style="display: block; font-size: 0.8rem; color: #888; margin-bottom: 10px; text-transform: uppercase;">Win Rate</span>
+                            <span class="metric-value positive" style="display: block; font-size: 1.5rem; font-weight: 700; color: var(--accent-color);">{{ backtest_metrics.win_rate }}</span>
+                        </div>
+                        <div class="metric-card" style="background: rgba(255, 255, 255, 0.03); padding: 20px; border-radius: 10px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.05);">
+                            <span class="metric-label" style="display: block; font-size: 0.8rem; color: #888; margin-bottom: 10px; text-transform: uppercase;">Risk/Reward</span>
+                            <span class="metric-value" style="display: block; font-size: 1.5rem; font-weight: 700; color: #fff;">{{ backtest_metrics.rr_ratio }}</span>
+                        </div>
+                        <div class="metric-card" style="background: rgba(255, 255, 255, 0.03); padding: 20px; border-radius: 10px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.05);">
+                            <span class="metric-label" style="display: block; font-size: 0.8rem; color: #888; margin-bottom: 10px; text-transform: uppercase;">Sharpe Ratio</span>
+                            <span class="metric-value" style="display: block; font-size: 1.5rem; font-weight: 700; color: #fff;">{{ backtest_metrics.sharpe }}</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Pricing Section -->
             <section id="pricing" class="section-padding bg-darker">
                 <h2 class="section-title">Simple Pricing</h2>

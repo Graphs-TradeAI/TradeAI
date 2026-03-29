@@ -1,0 +1,149 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeAI | Trader Profile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/profile.css' %}">
+    <link rel="icon" type="image/x-icon" href="{% static 'images/favicon1.ico' %}">
+</head>
+
+<body>
+    <div class="container profile-container">
+        <header>
+            <div class="logo">
+                <a href="{% url 'dashboard' %}" style="text-decoration: none; color: inherit;">Trade<span>AI</span><span class="blink">—</span></a>
+            </div>
+            <div class="status-indicator">
+                <span style="margin-right: 15px; color: var(--accent-color);">Trader: {{ user.username }}</span>
+                <a href="{% url 'dashboard' %}" class="header-btn dashboard-btn">DASHBOARD</a>
+                <a href="{% url 'logout' %}" class="header-btn logout-btn">LOGOUT</a>
+            </div>
+        </header>
+
+        <main>
+            <div class="profile-content">
+                <div class="profile-header-text">
+                    <h1>Trader Profile Configuration</h1>
+                    <p>Manage your AI trading performance metrics and execution controls.</p>
+                </div>
+
+                <!-- Performance Metrics -->
+                <section class="profile-group">
+                    <h3 class="group-title">Performance Metrics (Real-time)</h3>
+                    <div class="metrics-grid" id="profileMetricsGrid">
+                        <div class="metric-card">
+                            <span class="metric-label">Directional Accuracy</span>
+                            <span class="metric-value positive">68.4%</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Win Rate</span>
+                            <span class="metric-value positive">62.5%</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Risk-Reward</span>
+                            <span class="metric-value">2.15</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Expectancy</span>
+                            <span class="metric-value positive">0.18</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Sharpe Ratio</span>
+                            <span class="metric-value positive">1.92</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Backtest Size</span>
+                            <span class="metric-value">500 n</span>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="settings-and-trades">
+                    <!-- Automation & Execution Controls -->
+                    <section class="profile-group settings-section">
+                        <h3 class="group-title">Automation & Execution Controls</h3>
+                        <div class="settings-grid">
+                            <div class="setting-item">
+                                <label>Auto-trading</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="autoTrading">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label>Mode</label>
+                                <select id="tradingMode">
+                                    <option value="MANUAL">Manual</option>
+                                    <option value="SEMI">Semi-auto</option>
+                                    <option value="FULL">Full auto</option>
+                                </select>
+                            </div>
+                            <div class="setting-item">
+                                <label>Allowed Symbols</label>
+                                <input type="text" id="allowedSymbols" placeholder="EUR/USD, GBP/USD...">
+                            </div>
+                            <div class="setting-item">
+                                <label>Allowed Timeframes</label>
+                                <input type="text" id="allowedTimeframes" placeholder="15min, 30min, 1h...">
+                            </div>
+                            <div class="setting-item">
+                                <label>Size Strategy</label>
+                                <select id="sizeStrategy">
+                                    <option value="FIXED">Fixed lot</option>
+                                    <option value="RISK">Risk-based</option>
+                                </select>
+                            </div>
+                            <div class="setting-item" id="fixedLotGroup">
+                                <label>Fixed Lot Size</label>
+                                <input type="number" id="fixedLotSize" step="0.01" value="0.01">
+                            </div>
+                            <div class="setting-item" id="riskPerTradeGroup" style="display: none;">
+                                <label>Risk per Trade (%)</label>
+                                <input type="number" id="riskPerTrade" step="0.1" value="1.0">
+                            </div>
+                        </div>
+                        <button id="saveSettingsBtn" class="save-settings-btn">Apply Configuration</button>
+                    </section>
+
+                    <!-- Past Predicted Trades -->
+                    <section class="profile-group trades-section">
+                        <h3 class="group-title">Personalized Trade History</h3>
+                        <button id="fetchTradesBtn" class="header-btn fetch-trades-btn">
+                            <span>&#x21BB;</span> FETCH SAVED TRADES
+                        </button>
+                        <div class="trades-table-container">
+                            <table class="trades-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date/Time</th>
+                                        <th>Symbol</th>
+                                        <th>Signal</th>
+                                        <th>Entry</th>
+                                        <th>TP</th>
+                                        <th>SL</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pastTradesBody">
+                                    <!-- Populated via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{% static 'js/profile.js' %}"></script>
+</body>
+
+</html>

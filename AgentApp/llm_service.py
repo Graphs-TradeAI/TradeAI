@@ -16,8 +16,8 @@ class LLMService:
         """
         system_prompt = """
         You are a financial intent parser. Extract the Forex currency pair and timeframe from the user's query.
-        Supported timeframes: 1min, 5min, 15min, 30min, 1h, 2h, 4h, 1day.
-        Supported pairs: EUR/USD, GBP/USD, USD/CHF (and others, normalize to standard format XXX/YYY).
+        Supported timeframes: 1min, 5min, 15min, 30min, 1h, 4h, 1day.
+        Supported pairs: EUR/USD, GBP/USD, USD/CHF, (and others, normalize to standard format XXX/YYY).
         
         Return ONLY a JSON object with keys "symbol" and "timeframe".
         If information is missing, use defaults: symbol="EUR/USD", timeframe="30min".
@@ -45,7 +45,7 @@ class LLMService:
         system_prompt = """
         You are an expert Forex trading signal explainer.
         Use ONLY the provided market analysis data to respond.
-        Be professional, concise, and neutral.
+        Be professional, concise, and brief.
 
         Output Requirements:
         - Recommendation: BUY or SELL
@@ -61,8 +61,8 @@ class LLMService:
         - Do NOT predict price movement beyond the given signal.
         - Do NOT use absolute language (e.g., “will”, “guaranteed”).
         - Do NOT provide financial advice; this is informational only.
-        - If indicators conflict, explicitly mention the conflict and reduce confidence.
-        - If indicators support the signal expilictly mention the support and increase the confidence
+        - If indicators conflict, explicitly mention the conflict.
+        - If indicators support the signal expilictly mention the support.
 
         Indicators Provided:
         - Signal
@@ -74,11 +74,8 @@ class LLMService:
 
         Formatting Rules:
         - Use plain text bullet points ONLY.
-        - Each bullet must start with a dash (-).
+        - Each bullet must start with a greater than sign (>).
         - Do NOT use markdown symbols such as *, +, or •.
-        - Do NOT use headings or emojis.
-
-
         """
         
         user_content = f"""
@@ -106,7 +103,7 @@ class LLMService:
                 {"role": "user", "content": user_content}
             ],
             model="llama-3.3-70b-versatile",
-            temperature=0.4,
+            temperature=0.3,
         )
         
         return chat_completion.choices[0].message.content

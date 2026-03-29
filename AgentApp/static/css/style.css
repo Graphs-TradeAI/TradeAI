@@ -102,6 +102,44 @@ header {
     color: #888;
 }
 
+.header-btn {
+    background: var(--accent-color);
+    color: #000;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 10px;
+}
+
+.header-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 255, 157, 0.4);
+    background: #fff;
+}
+
+.logout-btn {
+    background: transparent;
+    color: #aaa;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logout-btn:hover {
+    background: rgba(255, 71, 87, 0.1);
+    color: var(--loss-color);
+    border-color: var(--loss-color);
+    box-shadow: 0 5px 15px rgba(255, 71, 87, 0.2);
+}
+
 .dot {
     width: 8px;
     height: 8px;
@@ -330,6 +368,12 @@ button:active {
 /* Landing Page Specific Styles */
 
 .landing-page {
+    height: auto;
+    overflow-y: auto;
+    display: block;
+}
+
+.privacy-page {
     height: auto;
     overflow-y: auto;
     display: block;
@@ -956,4 +1000,14 @@ button {
     .metric-value {
         font-size: 1rem;
     }
+}
+
+.secondary-btn {
+    background: transparent;
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+}
+
+.secondary-btn:hover {
+    background: rgba(0, 255, 157, 0.1);
 }

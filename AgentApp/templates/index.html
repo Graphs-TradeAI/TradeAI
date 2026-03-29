@@ -25,7 +25,8 @@
             <div class="status-indicator">
                 {% if user.is_authenticated %}
                 <span style="margin-right: 15px; color: var(--accent-color);">Hello {{ user.username }}, welcome</span>
-                <a href="{% url 'logout' %}" style="color: #888; text-decoration: none; font-size: 0.8rem;">LOGOUT</a>
+                <a href="{% url 'profile' %}" class="header-btn">PROFILE</a>
+                <a href="{% url 'logout' %}" class="header-btn logout-btn">LOGOUT</a>
                 {% else %}
                 <div class="dot"></div>
                 SYSTEM ONLINE
@@ -58,7 +59,7 @@
         <div class="input-area">
             <input  type="text" id="userInput" placeholder="Enter your trading prompt..." autocomplete="off"
                 autocorrect="on">
-                <!--<button id="saveBtn">Save prediction</button>-->
+            <button id="saveBtn" class="secondary-btn">Save Prediction</button>
             <button id="analyzeBtn" onclick="sendMessage()">Analyze</button>
         </div>
     </div>

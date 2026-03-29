@@ -1,0 +1,146 @@
+/* Profile Page Specific Styles */
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-main);
+    overflow-y: auto;
+    height: auto;
+    min-height: 100vh;
+}
+
+.profile-container {
+    height: auto;
+    min-height: 90vh;
+    margin: 5vh auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.profile-content {
+    max-width: 1000px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 20px;
+}
+
+.profile-header-text {
+    margin-bottom: 40px;
+    text-align: center;
+}
+
+.profile-header-text h1 {
+    font-size: 2.2rem;
+    color: var(--accent-color);
+    margin-bottom: 10px;
+    text-shadow: 0 0 15px var(--accent-glow);
+}
+
+.profile-header-text p {
+    color: #888;
+}
+
+.profile-group {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    padding: 30px;
+    margin-bottom: 30px;
+}
+
+.group-title {
+    font-size: 1.2rem;
+    color: #fff;
+    margin-bottom: 25px;
+    border-left: 4px solid var(--accent-color);
+    padding-left: 15px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+#profileMetricsGrid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.settings-and-trades {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 30px;
+}
+
+@media (min-width: 900px) {
+    .settings-and-trades {
+        grid-template-columns: 1fr;
+    }
+}
+
+.save-settings-btn {
+    margin-top: 30px;
+    width: 100%;
+    max-width: 300px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Switches and Input consistency */
+.setting-item input, .setting-item select {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    color: #fff;
+    font-size: 1rem;
+}
+
+.setting-item label {
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.dashboard-btn {
+    text-decoration: none;
+    margin-right: 10px;
+}
+
+.fetch-trades-btn {
+    margin-bottom: 30px;
+    width: auto;
+    padding: 12px 30px;
+    background: transparent;
+    border: 2px solid var(--accent-color);
+    color: var(--accent-color);
+    font-weight: 700;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.fetch-trades-btn:hover {
+    background: var(--accent-color);
+    color: #000;
+    box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.fetch-trades-btn i {
+    font-size: 1.1rem;
+}
+
+/* Scrollbar refinement for the full page */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background: #222;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-color);
+}

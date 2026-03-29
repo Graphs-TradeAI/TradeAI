@@ -3,11 +3,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatArea = document.getElementById('chatArea');
 
     // Allow Enter key to submit
-    userInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            sendMessage();
-        }
-    });
+    if (userInput) {
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    }
+
+    // Initialize Save Prediction button
+    initSaveButton();
 });
 
 async function sendMessage() {
@@ -18,7 +23,6 @@ async function sendMessage() {
 
     addMessage(messageText, 'user');
     userInput.value = '';
-
 
     const loadingId = addMessage('Analyzing market data...', 'bot');
 
@@ -36,12 +40,10 @@ async function sendMessage() {
 
         const data = await response.json();
 
-
         const loadingMsg = document.getElementById(loadingId);
         if (loadingMsg) loadingMsg.remove();
 
         if (response.ok) {
-
             addMessage(data.response, 'bot');
             if (data.data) {
                 addTradeCard(data.data);
@@ -67,7 +69,6 @@ function addMessage(text, sender) {
     messageDiv.classList.add('message', sender);
     messageDiv.id = 'msg-' + Date.now();
 
-    // Render as plain text to avoid HTML/script injection.
     const lines = String(text).split('\n');
     lines.forEach((line, idx) => {
         messageDiv.appendChild(document.createTextNode(line));
@@ -130,45 +131,53 @@ function addTradeCard(data) {
     chatArea.scrollTop = chatArea.scrollHeight;
 }
 
+function initSaveButton() {
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+            const cards = document.querySelectorAll('.trade-card');
+            if (!cards.length) {
+                alert('No trade signal to save. Please run an analysis first.');
+                return;
+            }
 
+            const latestCard = cards[cards.length - 1];
+            const tradeData = {
+                symbol: latestCard.dataset.symbol,
+                timeframe: latestCard.dataset.timeframe,
+                price: latestCard.dataset.price,
+                target: latestCard.dataset.target,
+                tp: latestCard.dataset.tp,
+                sl: latestCard.dataset.sl,
+                signal: latestCard.dataset.signal
+            };
 
+            try {
+                const response = await fetch('/save_signal/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify(tradeData)
+                });
 
-const saveBtn = document.getElementById("saveBtn");
-if (saveBtn) {
-saveBtn.addEventListener("click", () => {
-    const cards = document.querySelectorAll(".trade-card");
-
-    if (!cards.length) {
-        alert("No trade to save");
-        return;
+                const result = await response.json();
+                if (result.status === 'success') {
+                    saveBtn.textContent = 'Saved!';
+                    saveBtn.disabled = true;
+                    setTimeout(() => {
+                        saveBtn.textContent = 'Save Prediction';
+                        saveBtn.disabled = false;
+                    }, 2000);
+                } else {
+                    alert('Error saving signal: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error saving signal:', error);
+            }
+        });
     }
-
-    const latestCard = cards[cards.length - 1];
-
-    const TradeData = {
-        symbol: latestCard.dataset.symbol,
-        timeframe: latestCard.dataset.timeframe,
-        price: latestCard.dataset.price,
-        target: latestCard.dataset.target,
-        tp: latestCard.dataset.tp,
-        sl: latestCard.dataset.sl,
-        signal: latestCard.dataset.signal
-    };
-
-    console.log("Saving:", TradeData);
-
-    fetch("/save_signal/", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": getCookie("csrftoken")
-        },
-        body: JSON.stringify(TradeData)
-    })
-    .then(res => res.json())
-    .then(data => console.log("Saved:", data))
-    .catch(err => console.error(err));
-});
 }
 
 

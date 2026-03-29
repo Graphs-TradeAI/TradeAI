@@ -79,18 +79,44 @@
         <main>
             <div class="auth-container">
                 <div class="auth-header">Create Account</div>
-                <form method="post">
+                <form method="post" id="signupForm">
                     {% csrf_token %}
+                    {% if form.non_field_errors %}
+                    <div style="color: var(--loss-color); font-size: 0.85rem; margin-bottom: 15px; padding: 10px; border: 1px solid rgba(255,0,0,0.3); border-radius: 6px; background: rgba(255,0,0,0.05);">
+                        {% for error in form.non_field_errors %}
+                        <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                     {% for field in form %}
-                    <div class="form-group">
-                        {{ field }}
-                        {% if field.errors %}
-                        <div style="color: var(--loss-color); font-size: 0.8rem; margin-top: 5px;">
-                            {{ field.errors.0 }}
+                        {% if field.name != 'agree_privacy' %}
+                        <div class="form-group">
+                            {{ field }}
+                            {% if field.errors %}
+                            <div style="color: var(--loss-color); font-size: 0.8rem; margin-top: 5px;">
+                                {{ field.errors.0 }}
+                            </div>
+                            {% endif %}
                         </div>
                         {% endif %}
-                    </div>
                     {% endfor %}
+
+                    <div class="form-group" style="display: flex; align-items: flex-start; gap: 10px; margin: 18px 0;">
+                        <input type="checkbox" name="agree_privacy" id="id_agree_privacy" style="margin-top: 4px; accent-color: var(--accent-color); width: 16px; height: 16px; cursor: pointer;">
+                        <label for="id_agree_privacy" style="font-size: 0.85rem; color: #aaa; cursor: pointer; line-height: 1.4;">
+                            I agree to the <a href="{% url 'privacy_policy' %}" target="_blank" style="color: var(--accent-color); text-decoration: none; font-weight: 600;">Privacy Policy</a>
+                        </label>
+                    </div>
+                    {% if form.agree_privacy.errors %}
+                    <div style="color: var(--loss-color); font-size: 0.8rem; margin-bottom: 10px;">
+                        {{ form.agree_privacy.errors.0 }}
+                    </div>
+                    {% endif %}
+
+                    <div id="privacyError" style="color: var(--loss-color); font-size: 0.8rem; margin-bottom: 10px; display: none;">
+                        You must agree to the Privacy Policy to continue.
+                    </div>
+
                     <button type="submit" style="width: 100%;">Sign Up</button>
                 </form>
                 <div class="auth-footer">
@@ -98,6 +124,20 @@
                 </div>
             </div>
         </main>
+
+    <script>
+        document.getElementById('signupForm').addEventListener('submit', function(e) {
+            var cb = document.getElementById('id_agree_privacy');
+            var errDiv = document.getElementById('privacyError');
+            if (!cb.checked) {
+                e.preventDefault();
+                errDiv.style.display = 'block';
+                cb.focus();
+            } else {
+                errDiv.style.display = 'none';
+            }
+        });
+    </script>
     </div>
 </body>
 

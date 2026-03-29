@@ -1,110 +1,94 @@
-from Data.twelvedata import TwelveDataClient
-from Data.processing import build_forex_feature_set
-import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-import tensorflow as tf
-from tensorflow import keras
-from keras import models, layers
-from keras.callbacks import ModelCheckpoint, EarlyStopping
-import pandas as pd
-import argparse
 import os
-import pickle
+import argparse
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from tensorflow.keras import models, layers, optimizers
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+from Data.alphavantage import AlphaVantageClient
+from Data.processing import build_forex_feature_set
+import joblib
 
-def fine_tune_model(symbol="AUD/USD", interval="15min", epochs=20, batch_size=64, learning_rate=0.0001):
-    api_key = "fb941e0ebad44b4caa431760fcc5bef3"
-    client = TwelveDataClient(api_key)
+def fine_tune_for_pair(symbol="EUR/USD", timeframe="15min", epochs=30, lr=0.0001):
+    base_path = "/home/job/Desktop/projects/TradeAI/MLmodels/Forex"
+    global_model_path = os.path.join(base_path, "forex_models/global_base.keras")
     
-    print(f"Fetching latest data for {symbol} ({interval})...")
-    df = client.get_forex_history(symbol=symbol, interval=interval, output_size=5000)
-    df_features = build_forex_feature_set(df)
-    
-    # Path construction
-    # Mapping symbol "AUD/USD" -> "AUDUSD" for directory structure
-    symbol_dir = symbol.replace("/", "")
-    model_dir = f"/home/job/Desktop/projects/TradeAI/MLmodels/Forex/forex_models/{symbol_dir}/{interval}"
-    model_path = os.path.join(model_dir, "model.keras")
-    
-    if not os.path.exists(model_path):
-        print(f"Error: Model not found at {model_path}. Please train it first using modeltrain.py.")
+    if not os.path.exists(global_model_path):
+        print("Global base model not found. Please train global model first.")
         return
 
-    print(f"Loading existing model from {model_path}...")
-    model = models.load_model(model_path)
+    # 1. Fetch data for specific pair
+    client = AlphaVantageClient()
+    from_sym, to_sym = symbol.split("/")
+    print(f"Fetching data for {symbol} {timeframe}...")
+    df = client.get_forex_history(from_sym, to_sym, interval=timeframe)
+    df_features = build_forex_feature_set(df, symbol=symbol, timeframe=timeframe)
     
-    # Preparation for LSTM (same logic as modeltrain.py)
-    feature_cols = [c for c in df_features.columns if c not in ["timestamp", "future_close"]]
+    # 2. Prepare Sequences
+    # Load global scaler or use a new one? Usually better to use global scaler for consistency
+    scaler_path = os.path.join(base_path, "forex_models/global_scaler.pkl")
+    scaler = joblib.load(scaler_path)
     
-    def prepare_lstm_data(df, feature_cols, target_col="future_close", seq_length=60):
-        scaler = StandardScaler()
-        scaled_features = scaler.fit_transform(df[feature_cols])
-        
-        X, y = [], []
-        for i in range(len(df) - seq_length):
-            X.append(scaled_features[i:i+seq_length])
-            y.append(df[target_col].iloc[i+seq_length])
-            
-        X = np.array(X)
-        y = np.array(y)
-        
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
-        return X_train, X_test, y_train, y_test, scaler, seq_length
+    feature_cols = [c for c in df_features.columns if c not in ["timestamp", "target_direction", "target_return_5"]]
+    scaled_data = scaler.transform(df_features[feature_cols])
+    
+    seq_length = 60
+    X, y = [], []
+    for i in range(len(df_features) - seq_length):
+        X.append(scaled_data[i:i+seq_length])
+        y.append(df_features["target_direction"].iloc[i+seq_length])
+    
+    X, y = np.array(X), np.array(y)
+    
+    # Simple chronological split for fine-tuning
+    split = int(len(X) * 0.8)
+    X_train, y_train = X[:split], y[:split]
+    X_val, y_val = X[split:], y[split:]
 
-    X_train, X_test, y_train, y_test, scaler, seq_length = prepare_lstm_data(df_features, feature_cols)
+    # 3. Load and Modify Model
+    print("Loading global model...")
+    model = models.load_model(global_model_path)
     
-    # Re-compile with a lower learning rate for fine-tuning
+    # Optional: Freeze first 2 LSTM layers to preserve global patterns
+    # for layer in model.layers[:3]: 
+    #     layer.trainable = False
+        
     model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
-        loss="mse",
-        metrics=["mae", "mse"]
+        optimizer=optimizers.Adam(learning_rate=lr),
+        loss='binary_crossentropy',
+        metrics=['accuracy']
     )
+
+    # 4. Save Path
+    pair_tag = symbol.replace("/", "")
+    save_dir = os.path.join(base_path, f"forex_models/{pair_tag}/{timeframe}")
+    os.makedirs(save_dir, exist_ok=True)
     
-    earlystop = EarlyStopping(
-        monitor="val_mse",
-        patience=5,
-        restore_best_weights=True,
-        mode='min',
-        verbose=1
-    )
-    
-    modelcheckpoint = ModelCheckpoint(
-        filepath=model_path,
-        monitor='val_mse',
+    checkpoint = ModelCheckpoint(
+        os.path.join(save_dir, "finetuned_model.keras"),
+        monitor='val_accuracy',
         save_best_only=True,
-        save_weights_only=False,
-        verbose=1,
-        mode='min'
+        mode='max'
+    )
+    early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+
+    # 5. Fine-tune
+    print(f"Starting fine-tuning for {symbol}...")
+    model.fit(
+        X_train, y_train,
+        validation_data=(X_val, y_val),
+        epochs=epochs,
+        batch_size=32,
+        callbacks=[checkpoint, early_stop]
     )
     
-    print(f"Starting fine-tuning for {epochs} epochs...")
-    model.fit(
-        X_train,
-        y_train,
-        validation_data=(X_test, y_test),
-        epochs=epochs,
-        batch_size=batch_size,
-        callbacks=[earlystop, modelcheckpoint]
-    )
-    with open(os.path.join(model_dir, "scaler.pkl"), "wb") as f:
-        pickle.dump(scaler, f)
-    with open(os.path.join(model_dir, "model_meta.txt"), "w", encoding="utf-8") as f:
-        f.write(f"seq_length={seq_length}\n")
-        f.write("feature_cols=" + ",".join(feature_cols) + "\n")
-    print(f"Fine-tuning complete. Model saved to {model_path}")
+    print(f"Fine-tuning complete. Saved to {save_dir}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Fine-tune Forex LSTM models.")
-    parser.add_argument("--symbol", type=str, default="AUD/USD", help="Forex pair (e.g., AUD/USD)")
-    parser.add_argument("--interval", type=str, default="15min", help="Timeframe (e.g., 15min, 1h, 1d)")
-    parser.add_argument("--epochs", type=int, default=20, help="Number of fine-tuning epochs")
-    parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate for fine-tuning")
-    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--symbol", type=str, default="EUR/USD")
+    parser.add_argument("--timeframe", type=str, default="15min")
+    parser.add_argument("--epochs", type=int, default=30)
     args = parser.parse_args()
     
-    # Handle cases where user might input AUDUSD instead of AUD/USD
-    symbol = args.symbol
-    if "/" not in symbol and len(symbol) == 6:
-        symbol = f"{symbol[:3]}/{symbol[3:]}"
-        
-    fine_tune_model(symbol=symbol, interval=args.interval, epochs=args.epochs, learning_rate=args.lr)
+    fine_tune_for_pair(symbol=args.symbol, timeframe=args.timeframe, epochs=args.epochs)

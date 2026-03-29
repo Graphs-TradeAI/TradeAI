@@ -26,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY')
 GROQ_API_KEY = config('GROQ_API_KEY')
-TWELVE_DATA_API_KEY = config('TWELVE_DATA_API_KEY')
+ALPHAVANTAGE_API_KEY = config('ALPHAVANTAGE_API_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', cast=bool)

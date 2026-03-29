@@ -7,11 +7,12 @@ from .forms import SignupForm, LoginForm
 import json
 import os
 import sys
+import markdown
 from .inference import ModelInference
 from .llm_service import LLMService
 from decouple import config
 from django.conf import settings
-from .models import Trade
+from .models import Trade, TraderProfile
 def signup_view(request):
     if request.method == 'POST':
         form = SignupForm(request.POST)
@@ -45,6 +46,13 @@ def forgot_password_view(request):
 @login_required
 def dashboard_view(request):
     return render(request, 'index.html', {'user': request.user})
+
+def privacy_policy_view(request):
+    md_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'DATA_PRIVACY.md')
+    with open(md_path, 'r', encoding='utf-8') as f:
+        md_content = f.read()
+    html_content = markdown.markdown(md_content, extensions=['tables', 'fenced_code'])
+    return render(request, 'privacy_policy.html', {'privacy_html': html_content})
 
 def landing_page(request):
     if request.user.is_authenticated:
@@ -139,24 +147,91 @@ def api_chat(request):
     
     return JsonResponse({"error": "Invalid method"}, status=405)
 
-
+@login_required
 @csrf_exempt
 def save_signal(request):
     if request.method == "POST":
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+            Trade.objects.create(
+                user=request.user,
+                symbol=data.get("symbol"),
+                timeframe=data.get("timeframe"),
+                price=float(data.get("price")),
+                target=float(data.get("target")),
+                tp=float(data.get("tp")),
+                sl=float(data.get("sl")),
+                signal=data.get("signal")
+            )
+            return JsonResponse({"status": "success"})
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+    return JsonResponse({"status": "error", "message": "Invalid method"}, status=405)
 
-        Trade.objects.create(
-            signal=data["signal"],
-            pair=data["pair"],
-            timeframe=data["timeframe"],
-            price=data["price"],
-            action=data["action"],
-            tp=data["tp"],
-            sl=data["sl"]
-        )
-
-        return JsonResponse({"status": "success"})
+@login_required
+def get_profile_data(request):
+    profile, _ = TraderProfile.objects.get_or_create(user=request.user)
+    trades = Trade.objects.filter(user=request.user).order_by('-timestamp')[:20]
     
+    trade_list = [{
+        'timestamp': t.timestamp.strftime('%Y-%m-%d %H:%M'),
+        'symbol': t.symbol,
+        'timeframe': t.timeframe,
+        'price': t.price,
+        'target': t.target,
+        'tp': t.tp,
+        'sl': t.sl,
+        'signal': t.signal
+    } for t in trades]
+    
+    data = {
+        'metrics': {
+            'total_profit_loss': profile.total_profit_loss,
+            'win_rate': profile.win_rate,
+            'risk_reward_ratio': profile.risk_reward_ratio,
+            'max_drawdown': profile.max_drawdown,
+            'sharpe_ratio': profile.sharpe_ratio,
+            'trade_accuracy': profile.trade_accuracy,
+        },
+        'settings': {
+            'auto_trading': profile.auto_trading,
+            'mode': profile.mode,
+            'allowed_symbols': profile.allowed_symbols,
+            'allowed_timeframes': profile.allowed_timeframes,
+            'trade_size_strategy': profile.trade_size_strategy,
+            'fixed_lot_size': profile.fixed_lot_size,
+            'risk_per_trade': profile.risk_per_trade,
+        },
+        'trades': trade_list
+    }
+    return JsonResponse(data)
+
+@login_required
+@csrf_exempt
+def update_profile_settings(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            profile, _ = TraderProfile.objects.get_or_create(user=request.user)
+            
+            profile.auto_trading = data.get('auto_trading', profile.auto_trading)
+            profile.mode = data.get('mode', profile.mode)
+            profile.allowed_symbols = data.get('allowed_symbols', profile.allowed_symbols)
+            profile.allowed_timeframes = data.get('allowed_timeframes', profile.allowed_timeframes)
+            profile.trade_size_strategy = data.get('trade_size_strategy', profile.trade_size_strategy)
+            profile.fixed_lot_size = float(data.get('fixed_lot_size', profile.fixed_lot_size))
+            profile.risk_per_trade = float(data.get('risk_per_trade', profile.risk_per_trade))
+            
+            profile.save()
+            return JsonResponse({"status": "success"})
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+    return JsonResponse({"status": "error", "message": "Invalid method"}, status=405)
+    
+
+@login_required
+def profile_view(request):
+    return render(request, 'profile.html', {'user': request.user})
 
 def get_feedback(request):
     return render(request,"feedback.html")

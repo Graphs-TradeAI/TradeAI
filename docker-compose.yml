@@ -1,14 +1,36 @@
+
 version: '3.9'
 
 services:
   web:
     build: .
     env_file:
-      - .env        # injects all secrets into container
+      - .env
     ports:
       - "8000:8000"
     volumes:
-      - .:/app      # live reload if needed
+      - .:/app
     command: >
       sh -c "python manage.py collectstatic --noinput &&
              gunicorn AgentTrader.wsgi:application --bind 0.0.0.0:8000"
+    depends_on:
+      - db
+      - redis
+    restart: always
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: tradeai
+      POSTGRES_USER: tradeaiuser
+      POSTGRES_PASSWORD: tradeaipass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    restart: always
+
+  redis:
+    image: redis:7
+    restart: always
+
+volumes:
+  postgres_data:

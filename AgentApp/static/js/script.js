@@ -18,6 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
 async function sendMessage() {
     const userInput = document.getElementById('userInput');
     const messageText = userInput.value.trim();
+    const pairDropdown = document.getElementById('pairDropdown');
+    const timeframeDropdown = document.getElementById('timeframeDropdown');
+    const symbol = pairDropdown ? pairDropdown.value : 'EUR/USD';
+    const timeframe = timeframeDropdown ? timeframeDropdown.value : '1h';
 
     if (!messageText) return;
 
@@ -34,7 +38,9 @@ async function sendMessage() {
                 'X-CSRFToken': getCookie('csrftoken'),
             },
             body: JSON.stringify({
-                prompt: messageText
+                prompt: messageText,
+                symbol: symbol,
+                timeframe: timeframe
             })
         });
 
@@ -52,7 +58,8 @@ async function sendMessage() {
                 updateMetricsUI(data.metrics);
             }
         } else {
-            addMessage(`Error: ${data.error}`, 'bot');
+            let errorMsg = data.error || 'An unknown error occurred.';
+            addMessage(`❗ ${errorMsg}`, 'bot');
         }
 
     } catch (error) {

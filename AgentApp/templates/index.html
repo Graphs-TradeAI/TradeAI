@@ -57,6 +57,26 @@
         </main>
 
         <div class="input-area">
+            <div class="dropdown-row">
+                <select id="pairDropdown" class="dropdown">
+                    <option value="EUR/USD">EUR/USD</option>
+                    <option value="GBP/USD">GBP/USD</option>
+                    <option value="USD/JPY">USD/JPY</option>
+                    <option value="USD/CHF">USD/CHF</option>
+                    <option value="AUD/USD">AUD/USD</option>
+                    <option value="USD/CAD">USD/CAD</option>
+                    <option value="NZD/USD">NZD/USD</option>
+                </select>
+                <select id="timeframeDropdown" class="dropdown">
+                    <option value="1min">1min</option>
+                    <option value="5min">5min</option>
+                    <option value="15min">15min</option>
+                    <option value="30min">30min</option>
+                    <option value="1h">1h</option>
+                    <option value="4h">4h</option>
+                    <option value="1day">1day</option>
+                </select>
+            </div>
             <input  type="text" id="userInput" placeholder="Enter your trading prompt..." autocomplete="off"
                 autocorrect="on">
             <button id="saveBtn" class="secondary-btn">Save Prediction</button>

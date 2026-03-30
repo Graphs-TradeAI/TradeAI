@@ -1,0 +1,107 @@
+# ============================================================
+# TradeAI — Central Configuration
+# ============================================================
+
+# ---- Supported Currency Pairs ----
+pairs:
+  - EUR/USD
+  - GBP/USD
+  - USD/JPY
+  - USD/CHF
+  - AUD/USD
+  - USD/CAD
+  - NZD/USD
+
+# ---- Supported Timeframes ----
+timeframes:
+  - 1min
+  - 5min
+  - 15min
+  - 30min
+  - 1h
+  - 4h
+  - 1day
+
+# Timeframe index map (used as numeric feature)
+timeframe_index:
+  1min: 0
+  5min: 1
+  15min: 2
+  30min: 3
+  1h: 4
+  4h: 5
+  1day: 6
+
+# ---- Model Storage ----
+models:
+  # Root directory for all trained per-pair/per-timeframe models
+  # Relative to TradeAI project root
+  root: "MLmodels/Forex/forex_models"
+  global_base_filename: "global_base.keras"
+  global_scaler_filename: "global_scaler.pkl"
+  model_filename: "model.keras"
+  scaler_filename: "scaler.pkl"
+  metrics_filename: "metrics.json"
+
+# ---- Training ----
+training:
+  sequence_length: 60        # lookback window for LSTM sequences
+  train_ratio: 0.70
+  val_ratio: 0.15
+  # test_ratio = 1 - train - val = 0.15
+  epochs: 50
+  batch_size: 64
+  learning_rate: 0.001
+  patience: 7                # EarlyStopping patience
+  output_size: 5000          # candles to fetch for training
+
+# ---- Feature Engineering ----
+features:
+  ema_windows: [7, 20, 50]
+  rsi_window: 14
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  atr_window: 14
+  adx_window: 14
+  bb_window: 20
+  bb_dev: 2
+  stoch_window: 14
+  volatility_windows: [10, 20]
+
+# ---- Risk Management ----
+risk:
+  risk_per_trade: 0.01        # 1% of account balance per trade
+  default_rr_ratio: 2.0       # Minimum reward-to-risk ratio
+  atr_sl_multiplier: 1.5      # SL = entry ± (ATR × multiplier)
+  atr_low_volatility_threshold: 0.0005  # Skip trade if ATR below this
+  min_confidence_threshold: 0.55        # Skip trade if confidence below
+  max_trades_per_day: 5
+  max_drawdown_limit: 0.15    # 15% max portfolio drawdown
+  max_exposure_per_pair: 0.20 # 20% max exposure per currency pair
+
+# ---- Backtesting ----
+backtesting:
+  default_account_balance: 10000.0
+  slippage_pips: 0.5          # Simulated spread/slippage
+  lookback_days: 365          # Default historical window
+  output_dir: "backtesting_results"
+
+# ---- Twelve Data API ----
+twelvedata:
+  base_url: "https://api.twelvedata.com"
+  max_output_size: 5000       # Hard limit per request
+  retry_attempts: 3
+  retry_backoff_base: 2       # Seconds (exponential: 2, 4, 8)
+  request_timeout: 30         # seconds
+
+# ---- LLM ----
+llm:
+  model: "gemini-2.0-flash"
+  temperature: 0.3
+  max_output_tokens: 1024
+
+# ---- Logging ----
+logging:
+  level: "INFO"
+  format: "%(asctime)s [%(levelname)s] %(name)s — %(message)s"

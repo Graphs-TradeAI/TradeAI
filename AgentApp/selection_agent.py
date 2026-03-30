@@ -1,120 +1,83 @@
+"""
+TradeAI — Model Selection Agent (AgentApp)
+Delegates to ModelRegistry + ForexPredictor for dynamic model selection.
+"""
+
+from __future__ import annotations
+
+import logging
 import os
-import numpy as np
-import pandas as pd
-import tensorflow as tf
-import joblib
-from MLmodels.Forex.Data.alphavantage import AlphaVantageClient
-from MLmodels.Forex.Data.processing import build_forex_feature_set
-from MLmodels.Forex.forex_models.architectures import XGBoostHybrid
+import sys
+
+logger = logging.getLogger(__name__)
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 
 class ModelSelectionAgent:
     """
-    Agent responsible for:
-    1. Detecting market regime (Trend, Range, Volatile).
-    2. Selecting the best model for the current regime.
-    3. Returning a unified prediction and explanation.
+    Agent responsible for selecting and running the correct model
+    for a given (symbol, timeframe) pair.
+
+    Now delegates entirely to ForexPredictor + ModelRegistry.
+    Regime detection is embedded inside the feature engineering pipeline.
     """
-    def __init__(self, api_key=None):
+
+    def __init__(self, api_key: str = None):
         self.api_key = api_key
-        self.client = AlphaVantageClient(api_key)
-        self.base_path = "/home/job/Desktop/projects/TradeAI/MLmodels/Forex"
-        self.models_dir = os.path.join(self.base_path, "forex_models")
+        self._predictor = None
 
-    def _detect_regime(self, df_row):
+    @property
+    def predictor(self):
+        if self._predictor is None:
+            from MLmodels.Forex.inference.predictor import ForexPredictor
+            self._predictor = ForexPredictor(api_key=self.api_key)
+        return self._predictor
+
+    def analyze(self, symbol: str = "EUR/USD", timeframe: str = "15min") -> dict:
         """
-        Logic to determine market state.
-        Returns: 'trend', 'range', or 'volatile'
+        Run model selection and inference for (symbol, timeframe).
+
+        Returns a dict compatible with the old selection_agent contract:
+            symbol, timeframe, regime, direction, confidence,
+            probability, explanation, current_price, timestamp
         """
-        regime_idx = df_row["regime"]
-        if regime_idx == 3:
-            return "volatile"
-        elif regime_idx in [1, 2]:
-            return "trending"
-        else:
-            return "range"
+        try:
+            pred = self.predictor.predict(symbol=symbol, timeframe=timeframe)
 
-    def _get_lstm_prediction(self, symbol, timeframe, last_sequence, scaler):
-        # Path for finetuned model or global base
-        pair_tag = symbol.replace("/", "")
-        ft_model_path = os.path.join(self.models_dir, f"{pair_tag}/{timeframe}/finetuned_model.keras")
-        global_model_path = os.path.join(self.models_dir, "global_base.keras")
-        
-        model_path = ft_model_path if os.path.exists(ft_model_path) else global_model_path
-        
-        if not os.path.exists(model_path):
-            return 0.5, "No LSTM model found"
-        
-        model = tf.keras.models.load_model(model_path)
-        # Prepare input
-        input_data = last_sequence.reshape(1, last_sequence.shape[0], last_sequence.shape[1])
-        prob = model.predict(input_data)[0][0]
-        return prob, f"Used LSTM ({'Specialized' if model_path == ft_model_path else 'Global'})"
+            # Map to legacy output format for backward compat
+            return {
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "regime": pred.get("regime", "range"),
+                "direction": pred.get("signal", "HOLD"),
+                "confidence": pred.get("confidence", 0.0),
+                "probability": pred.get("direction_probability", 0.5),
+                "explanation": f"Model: {pred.get('model_source', 'unknown')} | "
+                               f"Regime: {pred.get('regime', 'range')} | "
+                               f"Confidence: {pred.get('confidence', 0):.2%}",
+                "current_price": pred.get("current_price", 0.0),
+                "sentiment_score": 0.0,
+                "timestamp": pred.get("timestamp", ""),
+                # Extended fields
+                "predicted_price": pred.get("predicted_price"),
+                "risk_level": pred.get("risk_level"),
+                "indicators": pred.get("indicators", {}),
+                "model_source": pred.get("model_source", ""),
+            }
 
-    def _get_xgboost_prediction(self, symbol, timeframe, last_features):
-        pair_tag = symbol.replace("/", "")
-        xgb_path = os.path.join(self.models_dir, f"{pair_tag}/{timeframe}/xgboost_model.json")
-        
-        if not os.path.exists(xgb_path):
-            return 0.5, "No XGBoost model found"
-        
-        xgb_model = XGBoostHybrid()
-        xgb_model.load(xgb_path)
-        # last_features needs to be a 2D array [1, num_features]
-        prob = xgb_model.model.predict_proba(last_features.reshape(1, -1))[0][1]
-        return prob, "Used XGBoost (Volatility Optimized)"
+        except Exception as exc:
+            logger.error("ModelSelectionAgent.analyze error: %s", exc)
+            return {"error": str(exc)}
 
-    def analyze(self, symbol="EUR/USD", timeframe="15min"):
-        # 1. Fetch Data
-        from_sym, to_sym = symbol.split("/")
-        df = self.client.get_forex_history(from_sym, to_sym, interval=timeframe)
-        
-        # 2. Fetch News for sentiment
-        news_df = self.client.get_news_sentiment(tickers=f"FOREX:{from_sym}")
-        
-        # 3. Process Features
-        df_features = build_forex_feature_set(df, symbol=symbol, timeframe=timeframe, news_df=news_df)
-        
-        # 4. Regime Detection
-        last_row = df_features.iloc[-1]
-        regime = self._detect_regime(last_row)
-        
-        # 5. Model Selection & Prediction
-        # Load global scaler
-        scaler_path = os.path.join(self.models_dir, "global_scaler.pkl")
-        if not os.path.exists(scaler_path):
-            return {"error": "Global scaler not found. Please train model first."}
-        
-        scaler = joblib.load(scaler_path)
-        feature_cols = [c for c in df_features.columns if c not in ["timestamp", "target_direction", "target_return_5"]]
-        
-        # Scale only features
-        scaled_data = scaler.transform(df_features[feature_cols])
-        seq_length = 60
-        last_sequence = scaled_data[-seq_length:]
-        last_features = scaled_data[-1]
-
-        explanation = ""
-        prob = 0.5
-        
-        if regime == "volatile":
-            prob, msg = self._get_xgboost_prediction(symbol, timeframe, last_features)
-            explanation = msg
-        else:
-            prob, msg = self._get_lstm_prediction(symbol, timeframe, last_sequence, scaler)
-            explanation = msg
-
-        direction = "BUY" if prob > 0.5 else "SELL"
-        confidence = abs(prob - 0.5) * 2 # 0.0 to 1.0
-
-        return {
-            "symbol": symbol,
-            "timeframe": timeframe,
-            "regime": regime,
-            "direction": direction,
-            "confidence": float(confidence),
-            "probability": float(prob),
-            "explanation": explanation,
-            "current_price": float(last_row["close"]),
-            "sentiment_score": float(last_row["overall_sentiment_score"]),
-            "timestamp": str(last_row["timestamp"])
-        }
+    def list_available_models(self) -> list:
+        """List all trained models available in the registry."""
+        try:
+            from MLmodels.Forex.models.registry import ModelRegistry
+            registry = ModelRegistry()
+            return registry.list_available()
+        except Exception as exc:
+            logger.error("Could not list models: %s", exc)
+            return []

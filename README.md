@@ -1,53 +1,82 @@
-# TradeAI 
+# TradeAI
 
-TradeAI is an advanced AI-powered Forex trading intelligence platform designed to provide real-time market analysis and predictions. It leverages machine learning models to analyze currency pairs and offer actionable insights.
+TradeAI is a modular, explainable, production-ready AI platform for Forex trading analysis and prediction. It combines deep learning, feature engineering, and LLM-powered explainability in a modern Django web app.
 
 ## Features
 
-Intelligent Market Analysis: AI-driven predictions for major Forex pairs:
-    *   EUR/USD
-    *   GBP/USD
-    *   USD/JPY
-*   Interactive Dashboard: A chat-based interface where users can ask for specific market insights and receive data-backed responses.
-*   Multi-Timeframe Analysis: Support for 15-minute, 30-minute, 1 hour, 2 hour and 4-hour timeframes.
-*   Modern Landing Page: A sleek, dark-themed landing page showcasing features, testimonials, and pricing.
-*   User Authentication: Secure signup and login functionality to protect user data.
+- **Multi-timeframe, multi-pair support:** EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/USD, USD/CAD, NZD/USD, and more.
+- **Modular ML pipeline:** Data loading, feature engineering (RSI, MACD, EMA, etc), LSTM/hybrid models, per-pair/timeframe.
+- **Incremental retraining & backtesting:** Update models with new data, simulate historical performance.
+- **LLM explainability:** Gemini via LangChain interprets model outputs and generates human-readable trading insights.
+- **Modern web UI:** Django-based, with dropdowns for pair/timeframe, chat-style prompt, and structured analysis output.
+- **API endpoints:** For chat, prediction, and backtesting.
+- **Docker & Kubernetes ready:** Production deployment with Postgres, Redis, Gunicorn, and scalable cloud support.
 
-##  Tech Stack
+## System Overview
 
-*   Backend: Python, Django
-*   Frontend: HTML, CSS, JavaScript
-*   AI/ML: LSTM, llm(Groq-llama model)
-*   Database:  PostgreSQL
-Data Sources
-*   TwelveData Api
-*   
-##  Installation
-The link: https://tradeai-v85y.onrender.com/
+See [DEPLOYMENT.md](DEPLOYMENT.md) for a full architecture, training/inference pipeline, and deployment guide.
 
-##  Usage
+**Key components:**
 
-1.  Open your browser enter the link `https://tradeai-v85y.onrender.com/`.
-2.  Landing Page: Explore the features and pricing.
-3.  Sign Up/Login: Create an account to access the dashboard.
-4.  Dashboard: Once logged in, use the chat interface to request market analysis (e.g., "Analyze EUR/USD on 30min timeframe").
+- Data Layer: Twelve Data API client for OHLCV, multi-timeframe, paginated.
+- Model Layer: Per-pair/timeframe LSTM/hybrid models, dynamic loading.
+- Training Pipeline: Modular, supports incremental retraining and backtesting.
+- Inference Layer: Loads correct model/scaler, preprocesses, predicts.
+- LLM Layer: Gemini via LangChain for explainable, structured insights.
+- Interface: Django web UI and REST API.
 
-## Approach
-fetched the data using the TwelveData API and perfomed feature engineering to add more concrete features. Examples of features added were: volatility_10,volatility_20 etc.
-The feature-rich data was fed into an LSTM with 4 layers, and a sigmoid (activation function) was added.
-Model trained for 30 epochs but Early Stopping enabled early process termintaion and best model saved.
+## Quickstart
 
-## Metrics
+### Local/Docker
+
+1. Clone the repo and set up `.env` with your API keys and DB credentials.
+2. Build and run:
+   ```bash
+   docker-compose up --build
+   ```
+3. Access at [http://localhost:8000](http://localhost:8000)
+
+### Model Training & Fine-tuning
+
+- Train a model:
+  ```bash
+  python -m MLmodels.Forex.training.trainer --symbol "EUR/USD" --timeframe "1h"
+  ```
+- Fine-tune:
+  ```bash
+  python -m MLmodels.Forex.model_finetune --symbol "GBP/USD" --timeframe "15min" --epochs 30
+  ```
+- Incremental retrain:
+  ```bash
+  python -m MLmodels.Forex.training.incremental --symbol "USD/JPY" --timeframe "1h" --lookback_days 30
+  ```
+
+### Web UI Usage
+
+1. Log in or sign up.
+2. Select a currency pair and timeframe from the dropdowns.
+3. Enter a prompt or click "Analyze" to get a prediction and structured, explainable analysis.
+
+### API Usage
+
+- `/api/chat/` — Chat-style prompt + prediction
+- `/api/predict/` — Structured prediction
+- `/api/backtest/` — Backtesting
+
+## Metrics Example
+
 | Instrument Type         | Avg Price | Validation MAE | Relative Accuracy |
 | ----------------------- | --------- | -------------- | ----------------- |
 | Low-price FX (EUR/USD)  | ~1.0      | ~0.003–0.004   | ~99.6–99.7%       |
 | High-price FX (USD/JPY) | ~150      | ~0.30–0.40     | ~99.7–99.8%       |
 
-## conclusion
-1.   Models generalize well across low- and high-priced FX instruments
-2.   High relative accuracy (~99.7%) confirms strong price prediction
-3.   Higher timeframe models provide a usable directional edge
-4.   Lower timeframe models are better suited for smoothing and confirmation, not direct entry signals
+## Conclusion
 
+- Models generalize well across low- and high-priced FX instruments
+- High relative accuracy (~99.7%) confirms strong price prediction
+- Higher timeframe models provide a usable directional edge
+- Lower timeframe models are better suited for smoothing and confirmation, not direct entry signals
 
+---
 
+For full details on architecture, training, inference, and deployment, see [DEPLOYMENT.md](DEPLOYMENT.md).

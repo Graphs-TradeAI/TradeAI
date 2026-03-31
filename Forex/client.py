@@ -1,43 +1,27 @@
-"""
-TradeAI Data Layer — Enhanced TwelveData API Client
-Supports pagination, exponential backoff retries, and volume data.
-"""
-
 from __future__ import annotations
-
 import logging
 import time
 from datetime import datetime, timedelta
 from typing import Optional
-
 import pandas as pd
 import requests
+from dotenv import load_dotenv
+load_dotenv()
+import os
+TWELVE_DATA_API_KEY=os.getenv("TWELVE_DATA_API_KEY")
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Config loader (lazy, avoid circular imports)
-# ---------------------------------------------------------------------------
+
 def _load_cfg() -> dict:
     import os, yaml
-    cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
+
+    cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+
     with open(cfg_path, "r") as f:
         return yaml.safe_load(f)
 
-
 class TwelveDataClient:
-    """
-    Production-grade Twelve Data API client.
-
-    Features
-    --------
-    - Multi-timeframe OHLCV fetching
-    - Pagination via start_date/end_date windowing
-    - Exponential backoff retry on failures
-    - Clean, sorted, fully typed DataFrame output
-    - Volume column retained
-    """
-
     BASE_URL = "https://api.twelvedata.com"
 
     def __init__(self, api_key: str, cfg: Optional[dict] = None):
@@ -49,46 +33,24 @@ class TwelveDataClient:
         self.retry_backoff_base: int = td_cfg.get("retry_backoff_base", 2)
         self.request_timeout: int = td_cfg.get("request_timeout", 30)
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
 
     def get_forex_history(
         self,
-        symbol: str = "EUR/USD",
-        interval: str = "1h",
+        symbol: str = "AUD/USD",
+        interval: str = "30min",
         output_size: int = 5000,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
     ) -> pd.DataFrame:
-        """
-        Fetch OHLCV data for a forex pair.
-
-        Parameters
-        ----------
-        symbol      : Forex pair, e.g. "EUR/USD"
-        interval    : Timeframe — "1min","5min","15min","30min","1h","4h","1day"
-        output_size : Number of candles (max 5000 per request)
-        start_date  : ISO date string "YYYY-MM-DD" for range queries
-        end_date    : ISO date string "YYYY-MM-DD" for range queries
-
-        Returns
-        -------
-        pd.DataFrame with columns: timestamp, open, high, low, close, volume
-        Sorted ascending by timestamp, NaN rows dropped.
-        """
+        
         if start_date and end_date:
             return self._fetch_paginated(symbol, interval, start_date, end_date)
         return self._fetch_single(symbol, interval, output_size)
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
 
     def _fetch_single(
         self, symbol: str, interval: str, output_size: int
     ) -> pd.DataFrame:
-        """Single-page fetch (most recent N candles)."""
         params = {
             "symbol": symbol,
             "interval": interval,
@@ -106,10 +68,7 @@ class TwelveDataClient:
         start_date: str,
         end_date: str,
     ) -> pd.DataFrame:
-        """
-        Paginate requests across a date range.
-        Moves the end_date window backward until start_date is covered.
-        """
+    
         logger.info(
             "Paginating %s %s from %s to %s", symbol, interval, start_date, end_date
         )
@@ -210,7 +169,7 @@ class TwelveDataClient:
         if not rows:
             logger.warning("No values in response for %s %s", symbol, interval)
             return pd.DataFrame(
-                columns=["timestamp", "open", "high", "low", "close", "volume"]
+                columns=["timestamp", "open", "high", "low", "close"]
             )
 
         df = pd.DataFrame(rows)
@@ -222,15 +181,12 @@ class TwelveDataClient:
         df["timestamp"] = pd.to_datetime(df["timestamp"])
 
         # Numeric conversion
-        numeric_cols = [c for c in ["open", "high", "low", "close", "volume"] if c in df.columns]
+        numeric_cols = [c for c in ["open", "high", "low", "close"] if c in df.columns]
         df[numeric_cols] = df[numeric_cols].astype(float)
 
-        # Add volume column if missing (some forex feeds omit it)
-        if "volume" not in df.columns:
-            df["volume"] = 0.0
-
+   
         df = (
-            df[["timestamp", "open", "high", "low", "close", "volume"]]
+            df[["timestamp", "open", "high", "low", "close"]]
             .sort_values("timestamp")
             .dropna()
             .reset_index(drop=True)
@@ -238,3 +194,8 @@ class TwelveDataClient:
 
         logger.debug("Parsed %d rows for %s %s", len(df), symbol, interval)
         return df
+
+''''client=TwelveDataClient(TWELVE_DATA_API_KEY)
+df=client.get_forex_history()
+
+print(df.tail())'''

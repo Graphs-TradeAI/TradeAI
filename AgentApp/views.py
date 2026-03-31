@@ -123,7 +123,7 @@ def api_chat(request):
         # Use dropdown values if provided, else parse from prompt
         if not symbol or not timeframe:
             intent = llm_service.parse_intent(user_prompt)
-            symbol = symbol or intent.get("symbol", "EUR/USD")
+            symbol = symbol or intent.get("symbol", "AUD/USD")
             timeframe = timeframe or intent.get("timeframe", "1h")
 
         # 2. Run inference + risk
@@ -165,7 +165,7 @@ def api_predict(request):
 
     try:
         data = json.loads(request.body)
-        symbol = data.get("symbol", "EUR/USD")
+        symbol = data.get("symbol", "AUD/USD")
         timeframe = data.get("timeframe", "1h")
         account_balance = float(data.get("account_balance", 10_000.0))
         api_key = data.get("api_key") or settings.GEMINI_API_KEY
@@ -244,7 +244,7 @@ def api_backtest(request):
 
     try:
         data = json.loads(request.body)
-        symbol = data.get("symbol", "EUR/USD")
+        symbol = data.get("symbol", "AUD/USD")
         timeframe = data.get("timeframe", "1h")
         account_balance = float(data.get("account_balance", 10_000.0))
         lookback_days = int(data.get("lookback_days", 365))

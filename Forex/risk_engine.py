@@ -13,8 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 def _load_cfg() -> dict:
-    import yaml
-    cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
+    import os, yaml
+
+    cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+
     with open(cfg_path, "r") as f:
         return yaml.safe_load(f)
 

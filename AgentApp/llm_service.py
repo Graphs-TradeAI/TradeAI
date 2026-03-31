@@ -1,8 +1,3 @@
-"""
-TradeAI — LLM Service (AgentApp)
-Thin wrapper around the new LangChain-based ForexAnalyst.
-Maintains backward compatibility with existing views.py calls.
-"""
 
 from __future__ import annotations
 
@@ -19,10 +14,7 @@ if BASE_DIR not in sys.path:
 
 
 class LLMService:
-    """
-    Backward-compatible LLM service wrapper.
-    Delegates to MLmodels.Forex.llm_layer.analyst.ForexAnalyst (LangChain + Gemini).
-    """
+
 
     def __init__(self, api_key: str = None):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
@@ -32,7 +24,7 @@ class LLMService:
     def analyst(self):
         """Lazy-load ForexAnalyst to avoid import overhead at startup."""
         if self._analyst is None:
-            from MLmodels.Forex.llm_layer.analyst import ForexAnalyst
+            from Forex.analyst import ForexAnalyst
             self._analyst = ForexAnalyst(api_key=self.api_key)
         return self._analyst
 
@@ -50,9 +42,8 @@ class LLMService:
             return self.analyst.parse_intent(user_prompt)
         except Exception as exc:
             logger.error("Intent parsing error: %s", exc)
-            return {"symbol": "EUR/USD", "timeframe": "1h"}
+            return {"symbol": "AUD/USD", "timeframe": "1h"}
 
-    # ── Plain text response (old api_chat compatibility) ──────────────────
 
     def generate_response(self, user_prompt: str, prediction_data: dict) -> str:
         """
@@ -85,7 +76,6 @@ class LLMService:
             return self.analyst.generate_insight(prediction, risk, user_prompt)
         except Exception as exc:
             logger.error("generate_insight error: %s", exc)
-            # Graceful fallback
             return {
                 "signal": prediction.get("signal", "HOLD"),
                 "confidence": prediction.get("confidence", 0.0),

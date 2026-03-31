@@ -1,7 +1,4 @@
-"""
-TradeAI — Full Backtesting Engine
-Simulates trades on historical data using the trained model + risk management.
-"""
+
 
 from __future__ import annotations
 
@@ -14,41 +11,31 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from ..data_layer.loader import DataLoader
-from ..feature_engineering.indicators import (
+from .loader import DataLoader
+from .indicators import (
     build_features,
     get_feature_columns,
     get_indicator_snapshot,
 )
-from ..models.registry import ModelNotFoundError, ModelRegistry
-from ..risk_management.risk_engine import RiskEngine
-from ..training.evaluator import Evaluator
-from ..training.preprocessor import Preprocessor
+from .registry import ModelNotFoundError, ModelRegistry
+from .risk_engine import RiskEngine
+from .evaluator import Evaluator
+from .preprocessor import Preprocessor
 
 logger = logging.getLogger(__name__)
 
 
 def _load_cfg() -> dict:
-    import yaml
-    cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
+    import os, yaml
+
+    cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+
     with open(cfg_path, "r") as f:
         return yaml.safe_load(f)
 
 
 class BacktestEngine:
-    """
-    Walk-forward backtesting engine.
 
-    For each candle in the test window:
-      1. Build feature sequence up to that candle
-      2. Generate model prediction
-      3. Apply risk management filters
-      4. Simulate trade (entry → SL hit / TP hit / end of window)
-      5. Track equity, PnL, drawdown
-
-    All preprocessing uses the SAME pipeline as training
-    (no look-ahead bias).
-    """
 
     def __init__(
         self,
@@ -70,13 +57,11 @@ class BacktestEngine:
         self.risk_engine = RiskEngine(self.cfg)
         self.evaluator = Evaluator()
 
-    # ──────────────────────────────────────────────────────────────────────
-    # Public API
-    # ──────────────────────────────────────────────────────────────────────
+
 
     def run(
         self,
-        symbol: str = "EUR/USD",
+        symbol: str = "AUD/USD",
         timeframe: str = "1h",
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
@@ -84,23 +69,7 @@ class BacktestEngine:
         lookback_days: int = 365,
         step_size: int = 1,   # Evaluate every N candles (1 = every candle)
     ) -> Dict:
-        """
-        Run the full backtest.
 
-        Parameters
-        ----------
-        symbol          : Forex pair e.g. "EUR/USD"
-        timeframe       : Timeframe e.g. "1h"
-        start_date      : ISO "YYYY-MM-DD" (defaults to lookback_days ago)
-        end_date        : ISO "YYYY-MM-DD" (defaults to today)
-        account_balance : Starting equity
-        lookback_days   : Used if start_date/end_date not given
-        step_size       : Candle step (1 = test every candle)
-
-        Returns
-        -------
-        dict: report + trade_log + equity_curve
-        """
         logger.info("Backtest: %s %s | balance=%.2f", symbol, timeframe, account_balance)
 
         # 1. Load full historical data
@@ -250,12 +219,7 @@ class BacktestEngine:
         take_profit: float,
         max_hold: int = 50,
     ):
-        """
-        Walk forward from start_idx to find SL/TP hit or timeout.
-
-        Returns (outcome, exit_price, exit_index)
-        outcome: "WIN" | "LOSS" | "TIMEOUT"
-        """
+     
         n = len(df)
         for j in range(start_idx, min(start_idx + max_hold, n)):
             row = df.iloc[j]
@@ -277,10 +241,7 @@ class BacktestEngine:
         close = float(df.iloc[min(start_idx + max_hold - 1, n - 1)]["close"])
         return "TIMEOUT", close, min(start_idx + max_hold - 1, n - 1)
 
-    # ──────────────────────────────────────────────────────────────────────
-    # Metrics computation
-    # ──────────────────────────────────────────────────────────────────────
-
+  
     def _compute_report(
         self,
         trade_log: list,

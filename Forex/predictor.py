@@ -1,7 +1,3 @@
-"""
-TradeAI — Inference Predictor
-Loads trained model + scaler, runs preprocessing, returns structured prediction.
-"""
 
 from __future__ import annotations
 
@@ -11,21 +7,17 @@ from typing import Optional
 
 import numpy as np
 
-from ..data_layer.loader import DataLoader
-from ..feature_engineering.indicators import (
-    build_features,
-    get_feature_columns,
-    get_indicator_snapshot,
-)
-from ..models.registry import ModelNotFoundError, ModelRegistry
-from ..training.preprocessor import Preprocessor
+from .loader import DataLoader
+from .processing import build_forex_feature_set
+from .indicators import get_indicator_snapshot
+from .registry import ModelNotFoundError, ModelRegistry
 
 logger = logging.getLogger(__name__)
 
 
 def _load_cfg() -> dict:
     import yaml
-    cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
+    cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
     with open(cfg_path, "r") as f:
         return yaml.safe_load(f)
 
@@ -62,7 +54,7 @@ class ForexPredictor:
 
     def predict(
         self,
-        symbol: str = "EUR/USD",
+        symbol: str = "AUD/USD",
         timeframe: str = "1h",
         output_size: int = 500,
     ) -> dict:
@@ -84,29 +76,25 @@ class ForexPredictor:
                 f"Insufficient data: got {len(df_raw)} rows, need > {self.seq_length + 60}"
             )
 
-        # 2. Feature engineering
-        df_feat = build_features(df_raw, symbol=symbol, timeframe=timeframe, cfg=self.cfg)
-        feature_cols = get_feature_columns(df_feat)
+        # 2. Feature engineering (USE TRAINING FEATURE PIPELINE)
+        df_feat = build_forex_feature_set(df_raw, symbol=symbol, timeframe=timeframe)
+        # Feature columns: mirror trainer (exclude timestamp, target_price, target_return)
+        feature_cols = [c for c in df_feat.columns if c not in ("timestamp", "target_price", "target_return")]
 
-        # 3. Load scaler + model
+        # 3. Load model (training pipeline used no scaling)
         try:
             model, source = self.registry.load_model(symbol, timeframe)
-            scaler = self.registry.load_scaler(symbol, timeframe)
         except ModelNotFoundError as exc:
             logger.error("Model not found: %s", exc)
             raise
 
-        # 4. Scale + build last sequence
-        preprocessor = Preprocessor(self.registry.models_root, self.cfg)
-        preprocessor.scaler = scaler
-        preprocessor._fitted = True
-        scaled = preprocessor.transform(df_feat, feature_cols)
+        # 4. Build last sequence directly from engineered features (matches trainer)
+        feature_matrix = df_feat[feature_cols].values
+        if len(feature_matrix) < self.seq_length:
+            raise ValueError(f"Not enough rows ({len(feature_matrix)}) for seq_length={self.seq_length}")
 
-        if len(scaled) < self.seq_length:
-            raise ValueError(f"Not enough scaled rows ({len(scaled)}) for seq_length={self.seq_length}")
-
-        last_seq = scaled[-self.seq_length:]  # (seq_length, n_features)
-        X = last_seq[np.newaxis, ...]  # (1, seq_length, n_features)
+        last_seq = feature_matrix[-self.seq_length:]
+        X = last_seq[np.newaxis, ...]
 
         # 5. Model inference
         raw_output = model.predict(X, verbose=0)

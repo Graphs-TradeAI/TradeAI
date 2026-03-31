@@ -1,15 +1,8 @@
-"""
-TradeAI — LLM Analyst (LangChain + Gemini)
-Converts model predictions into structured, human-readable trading insights.
-"""
-
 from __future__ import annotations
-
 import json
 import logging
 import os
 from typing import Optional
-
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain.output_parsers import StructuredOutputParser, ResponseSchema
@@ -19,10 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 def _load_cfg() -> dict:
-    import yaml
-    cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
+    import os, yaml
+
+    cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+
     with open(cfg_path, "r") as f:
         return yaml.safe_load(f)
+
 
 
 # ── Output Schema ──────────────────────────────────────────────────────────
@@ -38,14 +34,7 @@ INSIGHT_SCHEMAS = [
 
 
 class ForexAnalyst:
-    """
-    LangChain-powered LLM layer for forex prediction explainability.
 
-    Uses Gemini via LangChain's ChatGoogleGenerativeAI to:
-    - Generate structured JSON trading insights
-    - Parse user intent (symbol + timeframe extraction)
-    - Provide natural language reasoning
-    """
 
     def __init__(self, api_key: Optional[str] = None, cfg: Optional[dict] = None):
         self.cfg = cfg or _load_cfg()
@@ -65,9 +54,6 @@ class ForexAnalyst:
         self._output_parser = StructuredOutputParser.from_response_schemas(INSIGHT_SCHEMAS)
         self._str_parser = StrOutputParser()
 
-    # ──────────────────────────────────────────────────────────────────────
-    # Core: Structured Insight Generation
-    # ──────────────────────────────────────────────────────────────────────
 
     def generate_insight(
         self,
@@ -228,7 +214,7 @@ Return ONLY a valid JSON object with exactly two keys: "symbol" and "timeframe".
 Do NOT include markdown or code blocks.
 Normalize pair to uppercase with slash (e.g., "EUR/USD").
 Normalize timeframe to match supported list (e.g., "15 minute" → "15min", "hourly" → "1h", "daily" → "1day").
-If information is missing, use defaults: symbol="EUR/USD", timeframe="1h"."""
+If information is missing, use defaults: symbol="AUD/USD", timeframe="1h"."""
         )
 
         human = HumanMessagePromptTemplate.from_template("User Query: {query}")
@@ -247,7 +233,7 @@ If information is missing, use defaults: symbol="EUR/USD", timeframe="1h"."""
 
             # Validate against supported lists
             if result.get("symbol") not in supported_pairs:
-                result["symbol"] = "EUR/USD"
+                result["symbol"] = "AUD/USD"
             if result.get("timeframe") not in supported_tfs:
                 result["timeframe"] = "1h"
 
@@ -255,7 +241,7 @@ If information is missing, use defaults: symbol="EUR/USD", timeframe="1h"."""
 
         except Exception as exc:
             logger.warning("Intent parsing failed: %s — using defaults.", exc)
-            return {"symbol": "EUR/USD", "timeframe": "1h"}
+            return {"symbol": "AUD/USD", "timeframe": "1h"}
 
     # ──────────────────────────────────────────────────────────────────────
     # Legacy compatibility: generate a plain-text response (like old llm_service.py)

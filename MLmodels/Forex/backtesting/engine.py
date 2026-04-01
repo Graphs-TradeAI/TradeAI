@@ -1,4 +1,7 @@
-
+"""
+TradeAI — Full Backtesting Engine
+Simulates trades on historical data using the trained model + risk management.
+"""
 
 from __future__ import annotations
 
@@ -11,28 +14,41 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from loader import DataLoader
-from processing import build_forex_feature_set
-from indicators import get_indicator_snapshot
-from registry import ModelNotFoundError, ModelRegistry
-from risk_engine import RiskEngine
-from evaluator import Evaluator
-from preprocessor import Preprocessor
+from ..data_layer.loader import DataLoader
+from ..feature_engineering.indicators import (
+    build_features,
+    get_feature_columns,
+    get_indicator_snapshot,
+)
+from ..models.registry import ModelNotFoundError, ModelRegistry
+from ..risk_management.risk_engine import RiskEngine
+from ..training.evaluator import Evaluator
+from ..training.preprocessor import Preprocessor
 
 logger = logging.getLogger(__name__)
 
 
 def _load_cfg() -> dict:
-    import os, yaml
-
-    cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
-
+    import yaml
+    cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
     with open(cfg_path, "r") as f:
         return yaml.safe_load(f)
 
 
 class BacktestEngine:
+    """
+    Walk-forward backtesting engine.
 
+    For each candle in the test window:
+      1. Build feature sequence up to that candle
+      2. Generate model prediction
+      3. Apply risk management filters
+      4. Simulate trade (entry → SL hit / TP hit / end of window)
+      5. Track equity, PnL, drawdown
+
+    All preprocessing uses the SAME pipeline as training
+    (no look-ahead bias).
+    """
 
     def __init__(
         self,
@@ -54,11 +70,13 @@ class BacktestEngine:
         self.risk_engine = RiskEngine(self.cfg)
         self.evaluator = Evaluator()
 
-
+    # ──────────────────────────────────────────────────────────────────────
+    # Public API
+    # ──────────────────────────────────────────────────────────────────────
 
     def run(
         self,
-        symbol: str = "AUD/USD",
+        symbol: str = "EUR/USD",
         timeframe: str = "1h",
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
@@ -66,7 +84,23 @@ class BacktestEngine:
         lookback_days: int = 365,
         step_size: int = 1,   # Evaluate every N candles (1 = every candle)
     ) -> Dict:
+        """
+        Run the full backtest.
 
+        Parameters
+        ----------
+        symbol          : Forex pair e.g. "EUR/USD"
+        timeframe       : Timeframe e.g. "1h"
+        start_date      : ISO "YYYY-MM-DD" (defaults to lookback_days ago)
+        end_date        : ISO "YYYY-MM-DD" (defaults to today)
+        account_balance : Starting equity
+        lookback_days   : Used if start_date/end_date not given
+        step_size       : Candle step (1 = test every candle)
+
+        Returns
+        -------
+        dict: report + trade_log + equity_curve
+        """
         logger.info("Backtest: %s %s | balance=%.2f", symbol, timeframe, account_balance)
 
         # 1. Load full historical data
@@ -78,29 +112,24 @@ class BacktestEngine:
         )
         logger.info("Loaded %d rows for backtest", len(df_raw))
 
-        # 2. Build full feature set
-        # Using build_forex_feature_set to match trainer/inference
-        df_feat = build_forex_feature_set(df_raw, symbol=symbol, timeframe=timeframe)
-        
-        # Feature columns: mirror trainer (exclude timestamp, target_price, target_return)
-        feature_cols = [c for c in df_feat.columns if c not in ("timestamp", "target_price", "target_return")]
+        # 2. Build full feature set (no look-ahead because we slice per candle)
+        df_feat = build_features(df_raw, symbol=symbol, timeframe=timeframe, cfg=self.cfg)
+        feature_cols = get_feature_columns(df_feat)
 
         # 3. Load model + scaler
         try:
             model, source = self.registry.load_model(symbol, timeframe)
+            scaler = self.registry.load_scaler(symbol, timeframe)
         except ModelNotFoundError as exc:
             raise RuntimeError(f"Cannot run backtest: {exc}")
 
-        try:
-            scaler = self.registry.load_scaler(symbol, timeframe)
-            preprocessor = Preprocessor(self.registry.models_root, self.cfg)
-            preprocessor.scaler = scaler
-            preprocessor._fitted = True
-            # Scale dataset
-            scaled = preprocessor.transform(df_feat, feature_cols)
-        except ModelNotFoundError:
-            logger.warning("No scaler found for %s %s. Using raw features.", symbol, timeframe)
-            scaled = df_feat[feature_cols].values
+        preprocessor = Preprocessor(self.registry.models_root, self.cfg)
+        preprocessor.scaler = scaler
+        preprocessor._fitted = True
+
+        # Scale the entire dataset once (no look-ahead in scaling is acceptable here
+        # since we already fit the scaler during training on training data only)
+        scaled = preprocessor.transform(df_feat, feature_cols)
 
         # 4. Walk-forward simulation
         equity = account_balance
@@ -130,8 +159,7 @@ class BacktestEngine:
             entry_price = float(current_row["close"]) + (
                 self.slippage if signal == "BUY" else -self.slippage
             )
-            # Match Processing.py naming (atr_14)
-            atr = float(current_row.get("atr_14", current_row.get("atr", entry_price * 0.002)))
+            atr = float(current_row.get("atr", entry_price * 0.002))
 
             # Risk management filters
             prediction_dict = {
@@ -222,7 +250,12 @@ class BacktestEngine:
         take_profit: float,
         max_hold: int = 50,
     ):
-     
+        """
+        Walk forward from start_idx to find SL/TP hit or timeout.
+
+        Returns (outcome, exit_price, exit_index)
+        outcome: "WIN" | "LOSS" | "TIMEOUT"
+        """
         n = len(df)
         for j in range(start_idx, min(start_idx + max_hold, n)):
             row = df.iloc[j]
@@ -244,7 +277,10 @@ class BacktestEngine:
         close = float(df.iloc[min(start_idx + max_hold - 1, n - 1)]["close"])
         return "TIMEOUT", close, min(start_idx + max_hold - 1, n - 1)
 
-  
+    # ──────────────────────────────────────────────────────────────────────
+    # Metrics computation
+    # ──────────────────────────────────────────────────────────────────────
+
     def _compute_report(
         self,
         trade_log: list,

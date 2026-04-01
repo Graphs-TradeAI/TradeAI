@@ -101,7 +101,7 @@ class ForexTrainer:
     # ----------------------------
     def train_model_for_pair(
         self,
-        symbol="AUD/USD",
+        symbol="EUR/USD",
         timeframe="30min",
         epochs=100,
         batch_size=64
@@ -193,7 +193,7 @@ if __name__ == "__main__":
 
     try:
         trainer.train_model_for_pair(
-            symbol="AUD/USD",
+            symbol="EUR/USD",
             timeframe="30min",
             epochs=100
         )

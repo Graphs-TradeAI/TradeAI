@@ -110,12 +110,13 @@ def api_chat(request):
     try:
         data = json.loads(request.body)
         user_prompt = data.get("prompt", "")
-        api_key = data.get("api_key") or settings.GEMINI_API_KEY
+        api_key = data.get("api_key") or settings.GROQ_API_KEY
         symbol = data.get("symbol")
         timeframe = data.get("timeframe")
+        account_balance = float(data.get("account_balance", 10_000.0))
 
         if not api_key:
-            return JsonResponse({"error": "Gemini API Key is required"}, status=400)
+            return JsonResponse({"error": "Groq API Key is required"}, status=400)
 
         llm_service = LLMService(api_key=api_key)
         inference_service = ModelInference(api_key=settings.TWELVE_DATA_API_KEY)
@@ -127,17 +128,19 @@ def api_chat(request):
             timeframe = timeframe or intent.get("timeframe", "1h")
 
         # 2. Run inference + risk
+        prediction_data = {}
+        metrics = {}
         try:
-            prediction_data = inference_service.predict(symbol, timeframe)
+            prediction_data = inference_service.predict(symbol, timeframe, account_balance=account_balance)
+            # 4. Metrics
+            metrics = inference_service.calculate_model_metrics(symbol, timeframe)
         except Exception as exc:
-            logger.error("Inference error: %s", exc)
-            return JsonResponse({"error": f"Inference Error: {exc}"}, status=500)
+            logger.error("Inference skipped or failed: %s", exc)
+            # Provide some basic context for the LLM even if inference fails
+            prediction_data = {"symbol": symbol, "timeframe": timeframe}
 
-        # 3. Generate plain-text LLM response
+        # 3. Generate plain-text LLM response (this uses RAG now)
         response_text = llm_service.generate_response(user_prompt, prediction_data)
-
-        # 4. Metrics
-        metrics = inference_service.calculate_model_metrics(symbol, timeframe)
 
         return JsonResponse({
             "response": response_text,
@@ -168,7 +171,7 @@ def api_predict(request):
         symbol = data.get("symbol", "AUD/USD")
         timeframe = data.get("timeframe", "1h")
         account_balance = float(data.get("account_balance", 10_000.0))
-        api_key = data.get("api_key") or settings.GEMINI_API_KEY
+        api_key = data.get("api_key") or settings.GROQ_API_KEY
 
         inference_service = ModelInference(api_key=settings.TWELVE_DATA_API_KEY)
         llm_service = LLMService(api_key=api_key)

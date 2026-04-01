@@ -97,7 +97,7 @@ twelvedata:
 
 # ---- LLM ----
 llm:
-  model: "gemini-2.0-flash"
+  model: "llama-3.3-70b-versatile"
   temperature: 0.3
   max_output_tokens: 1024
 

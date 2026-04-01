@@ -17,8 +17,9 @@ class LLMService:
 
 
     def __init__(self, api_key: str = None):
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        self.api_key = api_key or os.environ.get("GROQ_API_KEY")
         self._analyst = None
+        self._rag_service = None
 
     @property
     def analyst(self):
@@ -27,6 +28,18 @@ class LLMService:
             from Forex.analyst import ForexAnalyst
             self._analyst = ForexAnalyst(api_key=self.api_key)
         return self._analyst
+
+    @property
+    def rag(self):
+        """Lazy-load RAGService."""
+        if self._rag_service is None:
+            try:
+                from .rag_service import RAGService
+                self._rag_service = RAGService()
+            except Exception as exc:
+                logger.error("Failed to initialize RAGService: %s", exc)
+                self._rag_service = None
+        return self._rag_service
 
     # ── Intent Parsing (unchanged signature) ─────────────────────────────
 
@@ -47,14 +60,24 @@ class LLMService:
 
     def generate_response(self, user_prompt: str, prediction_data: dict) -> str:
         """
-        Generate a plain-text trading analysis explanation.
+        Generate a plain-text trading analysis explanation with RAG context.
         Used by the existing /api/chat/ endpoint.
 
         Returns
         -------
         str: Bullet-point trading analysis
         """
+        context = ""
+        if self.rag:
+            try:
+                context = self.rag.get_context(user_prompt)
+            except Exception as exc:
+                logger.error("RAG context retrieval failed: %s", exc)
+
         try:
+            # Combine prediction data and RAG context for the analyst
+            if context:
+                prediction_data["rag_context"] = context
             return self.analyst.generate_text_response(user_prompt, prediction_data)
         except Exception as exc:
             logger.error("generate_response error: %s", exc)

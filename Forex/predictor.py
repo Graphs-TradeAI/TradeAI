@@ -7,10 +7,10 @@ from typing import Optional
 
 import numpy as np
 
-from .loader import DataLoader
-from .processing import build_forex_feature_set
-from .indicators import get_indicator_snapshot
-from .registry import ModelNotFoundError, ModelRegistry
+from loader import DataLoader
+from processing import build_forex_feature_set
+from indicators import get_indicator_snapshot
+from registry import ModelNotFoundError, ModelRegistry
 
 logger = logging.getLogger(__name__)
 

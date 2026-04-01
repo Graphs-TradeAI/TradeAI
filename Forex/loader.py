@@ -11,7 +11,7 @@ from typing import Optional
 
 import pandas as pd
 
-from .client import TwelveDataClient
+from client import TwelveDataClient
 
 logger = logging.getLogger(__name__)
 

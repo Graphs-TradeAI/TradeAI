@@ -42,12 +42,123 @@ body {
 }
 
 header {
-    padding: 20px 30px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 15px 30px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: linear-gradient(90deg, rgba(20, 22, 25, 1) 0%, rgba(30, 35, 40, 1) 100%);
+    background: rgba(20, 22, 25, 0.8);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+}
+
+.logo-section {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    flex: 1;
+}
+
+.control-panel {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 6px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.header-select {
+    background: #1a1c1e;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 100px;
+}
+
+.header-select:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.balance-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.currency-symbol {
+    position: absolute;
+    left: 12px;
+    color: var(--accent-color);
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.header-input {
+    background: #1a1c1e;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 8px 12px 8px 25px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    width: 100px;
+    transition: all 0.3s ease;
+}
+
+.header-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.header-action-btn {
+    background: var(--accent-color);
+    color: #000;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 0.5px;
+}
+
+.header-action-btn:hover {
+    background: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.welcome-text {
+    font-size: 0.85rem;
+    color: #aaa;
+    font-weight: 500;
+}
+
+.header-nav {
+    display: flex;
+    gap: 10px;
 }
 
 .logo {
@@ -218,8 +329,25 @@ main {
     color: #dfd4d4;
     border-bottom-left-radius: 2px;
     border: 1px solid rgba(255, 255, 255, 0.05);
- 
 }
+
+.message-meta {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.meta-pill {
+    background: rgba(0, 255, 157, 0.1);
+    color: var(--accent-color);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    border: 1px solid rgba(0, 255, 157, 0.3);
+}
+
 
 .trade-card {
     background: rgba(0, 0, 0, 0.3);
@@ -281,12 +409,71 @@ main {
 }
 
 .input-area {
-    padding: 20px;
-    background-color: rgba(0, 0, 0, 0.2);
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 25px 30px;
+    background: rgba(10, 11, 12, 0.5);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+}
+
+.input-wrapper {
     display: flex;
     gap: 15px;
-    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 8px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+}
+
+.input-wrapper:focus-within {
+    border-color: rgba(0, 255, 157, 0.3);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+.input-area input[type="text"] {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 12px 20px;
+    color: #fff;
+    font-size: 1rem;
+    margin-bottom: 0;
+}
+
+.input-area input[type="text"]:focus {
+    box-shadow: none;
+    border: none;
+}
+
+.input-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.primary-btn {
+    background: var(--accent-color);
+    color: #000;
+    padding: 10px 25px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.secondary-btn {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ccc;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.secondary-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
 input[type="text"],
@@ -1010,4 +1197,86 @@ button {
 
 .secondary-btn:hover {
     background: rgba(0, 255, 157, 0.1);
+}
+
+/* Metrics Section */
+.metrics-container {
+    margin-top: 30px;
+    padding: 25px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    backdrop-filter: blur(5px);
+    animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.metrics-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.metrics-title::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 18px;
+    background: var(--accent-color);
+    border-radius: 2px;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+.metric-card {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-3px);
+}
+
+.metric-label {
+    font-size: 0.75rem;
+    color: #888;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.metric-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #fff;
+    font-family: var(--font-mono);
+}
+
+.metric-value.positive {
+    color: var(--accent-color);
+}
+
+.metric-value.negative {
+    color: var(--loss-color);
 }

@@ -36,7 +36,7 @@ class TwelveDataClient:
 
     def get_forex_history(
         self,
-        symbol: str = "AUD/USD",
+        symbol: str = "EUR/USD",
         interval: str = "30min",
         output_size: int = 5000,
         start_date: Optional[str] = None,

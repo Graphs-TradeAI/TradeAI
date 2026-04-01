@@ -7,7 +7,7 @@ from ta.volatility import BollingerBands, AverageTrueRange
 
 def build_forex_feature_set(
     df: pd.DataFrame,
-    symbol: str = "AUD/USD",
+    symbol: str = "EUR/USD",
     timeframe: str = "30min",
     horizon: int = 1
 ) -> pd.DataFrame:

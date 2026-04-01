@@ -19,14 +19,45 @@
 <body>
     <div class="container">
         <header>
-            <div class="logo">
-                Trade<span>AI</span><span class="blink">—</span>
+            <div class="logo-section">
+                <div class="logo">
+                    Trade<span>AI</span><span class="blink">—</span>
+                </div>
+                <div class="control-panel">
+                    <select id="pairDropdown" class="header-select">
+                        <option value="EUR/USD">EUR/USD</option>
+                        <option value="GBP/USD">GBP/USD</option>
+                        <option value="USD/JPY">USD/JPY</option>
+                        <option value="USD/CHF">USD/CHF</option>
+                        <option value="AUD/USD" selected>AUD/USD</option>
+                        <option value="USD/CAD">USD/CAD</option>
+                        <option value="NZD/USD">NZD/USD</option>
+                    </select>
+                    <select id="timeframeDropdown" class="header-select">
+                        <option value="1min">1min</option>
+                        <option value="5min">5min</option>
+                        <option value="15min">15min</option>
+                        <option value="30min">30min</option>
+                        <option value="1h" selected>1h</option>
+                        <option value="4h">4h</option>
+                        <option value="1day">1day</option>
+                    </select>
+                    <div class="balance-input-wrapper">
+                        <span class="currency-symbol">$</span>
+                        <input type="number" id="accountBalance" class="header-input" placeholder="Balance" value="10000" min="100">
+                    </div>
+                    <button id="startAnalysisBtn" class="header-action-btn">START ANALYSIS</button>
+                </div>
             </div>
             <div class="status-indicator">
                 {% if user.is_authenticated %}
-                <span style="margin-right: 15px; color: var(--accent-color);">Hello {{ user.username }}, welcome</span>
-                <a href="{% url 'profile' %}" class="header-btn">PROFILE</a>
-                <a href="{% url 'logout' %}" class="header-btn logout-btn">LOGOUT</a>
+                <div class="user-info">
+                    <span class="welcome-text">Hello {{ user.username }}</span>
+                    <div class="header-nav">
+                        <a href="{% url 'profile' %}" class="header-btn">PROFILE</a>
+                        <a href="{% url 'logout' %}" class="header-btn logout-btn">LOGOUT</a>
+                    </div>
+                </div>
                 {% else %}
                 <div class="dot"></div>
                 SYSTEM ONLINE
@@ -57,30 +88,14 @@
         </main>
 
         <div class="input-area">
-            <div class="dropdown-row">
-                <select id="pairDropdown" class="dropdown">
-                    <option value="EUR/USD">EUR/USD</option>
-                    <option value="GBP/USD">GBP/USD</option>
-                    <option value="USD/JPY">USD/JPY</option>
-                    <option value="USD/CHF">USD/CHF</option>
-                    <option value="AUD/USD">AUD/USD</option>
-                    <option value="USD/CAD">USD/CAD</option>
-                    <option value="NZD/USD">NZD/USD</option>
-                </select>
-                <select id="timeframeDropdown" class="dropdown">
-                    <option value="1min">1min</option>
-                    <option value="5min">5min</option>
-                    <option value="15min">15min</option>
-                    <option value="30min">30min</option>
-                    <option value="1h">1h</option>
-                    <option value="4h">4h</option>
-                    <option value="1day">1day</option>
-                </select>
+            <div class="input-wrapper">
+                <input type="text" id="userInput" placeholder="Ask about Forex or trading data..." autocomplete="off"
+                    autocorrect="on">
+                <div class="input-actions">
+                    <button id="saveBtn" class="secondary-btn">Save Prediction</button>
+                    <button id="analyzeBtn" class="primary-btn" onclick="sendMessage()">Chat</button>
+                </div>
             </div>
-            <input  type="text" id="userInput" placeholder="Enter your trading prompt..." autocomplete="off"
-                autocorrect="on">
-            <button id="saveBtn" class="secondary-btn">Save Prediction</button>
-            <button id="analyzeBtn" onclick="sendMessage()">Analyze</button>
         </div>
     </div>
 

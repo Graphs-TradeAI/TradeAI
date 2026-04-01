@@ -1,6 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     const userInput = document.getElementById('userInput');
     const chatArea = document.getElementById('chatArea');
+    const pairDropdown = document.getElementById('pairDropdown');
+    const timeframeDropdown = document.getElementById('timeframeDropdown');
+
+    const startAnalysisBtn = document.getElementById('startAnalysisBtn');
 
     // Allow Enter key to submit
     if (userInput) {
@@ -11,22 +15,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (startAnalysisBtn) {
+        startAnalysisBtn.addEventListener('click', () => {
+            const sym = pairDropdown.value;
+            const tf = timeframeDropdown.value;
+            // Clear previous metrics
+            document.getElementById('metrics-container').style.display = 'none';
+            sendMessage(false, `Perform a comprehensive technical analysis for ${sym} on the ${tf} timeframe. Include a clear signal (BUY/SELL/HOLD) and explain the reasoning based on the latest market data and your knowledge base.`);
+        });
+    }
+
     // Initialize Save Prediction button
     initSaveButton();
 });
 
-async function sendMessage() {
+async function sendMessage(isAutoTrigged = false, customPrompt = null) {
     const userInput = document.getElementById('userInput');
-    const messageText = userInput.value.trim();
+    let messageText = customPrompt || userInput.value.trim();
     const pairDropdown = document.getElementById('pairDropdown');
     const timeframeDropdown = document.getElementById('timeframeDropdown');
+    const accountBalanceInput = document.getElementById('accountBalance');
+    
     const symbol = pairDropdown ? pairDropdown.value : 'EUR/USD';
     const timeframe = timeframeDropdown ? timeframeDropdown.value : '1h';
+    const accountBalance = accountBalanceInput ? parseFloat(accountBalanceInput.value) : 10000.0;
 
     if (!messageText) return;
 
     addMessage(messageText, 'user');
-    userInput.value = '';
+    if (!customPrompt) userInput.value = '';
 
     const loadingId = addMessage('Analyzing market data...', 'bot');
 
@@ -40,7 +57,8 @@ async function sendMessage() {
             body: JSON.stringify({
                 prompt: messageText,
                 symbol: symbol,
-                timeframe: timeframe
+                timeframe: timeframe,
+                account_balance: accountBalance
             })
         });
 
@@ -50,7 +68,7 @@ async function sendMessage() {
         if (loadingMsg) loadingMsg.remove();
 
         if (response.ok) {
-            addMessage(data.response, 'bot');
+            addMessage(data.response, 'bot', { symbol: data.data.symbol, timeframe: data.data.timeframe });
             if (data.data) {
                 addTradeCard(data.data);
             }
@@ -70,24 +88,80 @@ async function sendMessage() {
     }
 }
 
-function addMessage(text, sender) {
+function addMessage(text, sender, meta = {}) {
     const chatArea = document.getElementById('chatArea');
     const messageDiv = document.createElement('div');
     messageDiv.classList.add('message', sender);
     messageDiv.id = 'msg-' + Date.now();
 
+    // Add metadata pills if present
+    if (meta.symbol || meta.timeframe) {
+        const metaDiv = document.createElement('div');
+        metaDiv.classList.add('message-meta');
+        
+        if (meta.symbol) {
+            const symPill = document.createElement('span');
+            symPill.classList.add('meta-pill');
+            symPill.textContent = meta.symbol;
+            metaDiv.appendChild(symPill);
+        }
+        
+        if (meta.timeframe) {
+            const tfPill = document.createElement('span');
+            tfPill.classList.add('meta-pill');
+            tfPill.textContent = meta.timeframe;
+            metaDiv.appendChild(tfPill);
+        }
+        
+        messageDiv.appendChild(metaDiv);
+    }
+
+    const textSpan = document.createElement('span');
     const lines = String(text).split('\n');
     lines.forEach((line, idx) => {
-        messageDiv.appendChild(document.createTextNode(line));
+        textSpan.appendChild(document.createTextNode(line));
         if (idx < lines.length - 1) {
-            messageDiv.appendChild(document.createElement('br'));
+            textSpan.appendChild(document.createElement('br'));
         }
     });
+    messageDiv.appendChild(textSpan);
 
     chatArea.appendChild(messageDiv);
     chatArea.scrollTop = chatArea.scrollHeight;
-    typingEffect(messageDiv);
+    
+    if (sender === 'bot') {
+        typingEffect(textSpan);
+    }
+    
     return messageDiv.id;
+}
+
+function typingEffect(element) {
+    const text = element.innerHTML;
+    element.innerHTML = '';
+    let i = 0;
+    const interval = setInterval(() => {
+        if (i < text.length) {
+            if (text[i] === '<') {
+                const endTag = text.indexOf('>', i);
+                element.innerHTML += text.substring(i, endTag + 1);
+                i = endTag + 1;
+            } else {
+                element.innerHTML += text[i];
+                i++;
+            }
+            // Auto-scroll chat area
+            const chatArea = document.getElementById('chatArea');
+            chatArea.scrollTop = chatArea.scrollHeight;
+        } else {
+            clearInterval(interval);
+            // Highlight specific keywords for a 'premium' feel
+            element.innerHTML = element.innerHTML
+                .replace(/\b(BUY)\b/g, '<span class="signal-buy">$1</span>')
+                .replace(/\b(SELL)\b/g, '<span class="signal-sell">$1</span>')
+                .replace(/\b(HOLD)\b/g, '<span style="color: #888; font-weight: bold;">$1</span>');
+        }
+    }, 12);
 }
 
 function addTradeCard(data) {
@@ -200,11 +274,11 @@ function updateMetricsUI(metrics) {
     
     const metricItems = [
         { label: 'Hit Rate', value: (metrics.directional_accuracy * 100).toFixed(1) + '%', class: metrics.directional_accuracy > 0.5 ? 'positive' : '' },
-        { label: 'F1 Score', value: metrics.f1_score.toFixed(2), class: metrics.f1_score > 0.5 ? 'positive' : '' },
-        { label: 'Sharpe', value: metrics.sharpe_ratio.toFixed(2), class: metrics.sharpe_ratio > 1 ? 'positive' : '' },
+        { label: 'F1 Score', value: (metrics.f1_score || 0).toFixed(2), class: (metrics.f1_score || 0) > 0.5 ? 'positive' : '' },
+        { label: 'Sharpe', value: (metrics.sharpe_ratio || 0).toFixed(2), class: (metrics.sharpe_ratio || 0) > 1.5 ? 'positive' : '' },
         { label: 'Win Rate', value: (metrics.win_rate * 100).toFixed(1) + '%', class: metrics.win_rate > 0.5 ? 'positive' : '' },
-        { label: 'RR Ratio', value: metrics.risk_reward.toFixed(2), class: metrics.risk_reward > 1.5 ? 'positive' : '' },
-        { label: 'Expectancy', value: metrics.expectancy.toFixed(4), class: metrics.expectancy > 0 ? 'positive' : 'negative' }
+        { label: 'RR Ratio', value: (metrics.risk_reward || 0).toFixed(2), class: (metrics.risk_reward || 0) > 2.0 ? 'positive' : '' },
+        { label: 'Expectancy', value: (metrics.expectancy || 0).toFixed(4), class: (metrics.expectancy || 0) > 0 ? 'positive' : 'negative' }
     ];
     
     grid.innerHTML = metricItems.map(item => `
@@ -214,8 +288,10 @@ function updateMetricsUI(metrics) {
         </div>
     `).join('');
     
-    // Scroll to metrics
-    container.scrollIntoView({ behavior: 'smooth' });
+    // Smooth scroll to metrics section
+    setTimeout(() => {
+        container.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 500);
 }
 
 function getCookie(name) {

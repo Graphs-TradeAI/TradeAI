@@ -1,0 +1,18 @@
+{
+  "symbol": "AUD/USD",
+  "timeframe": "1h",
+  "n_trades": 130,
+  "n_wins": 68,
+  "n_losses": 62,
+  "win_rate": 0.5231,
+  "total_return_pct": 83.1774,
+  "sharpe_ratio": 5.0407,
+  "max_drawdown_pct": -14.0198,
+  "profit_factor": 1.9811,
+  "gross_profit": 16795.9075,
+  "gross_loss": 8478.1712,
+  "initial_balance": 10000.0,
+  "final_balance": 18317.74,
+  "avg_pnl": 63.9826,
+  "model_source": "pair (AUD/USD 1h)"
+}

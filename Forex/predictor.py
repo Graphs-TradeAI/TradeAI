@@ -7,10 +7,9 @@ from typing import Optional
 
 import numpy as np
 
-from loader import DataLoader
-from processing import build_forex_feature_set
-from indicators import get_indicator_snapshot
-from registry import ModelNotFoundError, ModelRegistry
+from Forex.loader import DataLoader
+from Forex.indicators import build_features, get_feature_columns, get_indicator_snapshot
+from Forex.registry import ModelNotFoundError, ModelRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -77,9 +76,9 @@ class ForexPredictor:
             )
 
         # 2. Feature engineering (USE TRAINING FEATURE PIPELINE)
-        df_feat = build_forex_feature_set(df_raw, symbol=symbol, timeframe=timeframe)
-        # Feature columns: mirror trainer (exclude timestamp, target_price, target_return)
-        feature_cols = [c for c in df_feat.columns if c not in ("timestamp", "target_price", "target_return")]
+        df_feat = build_features(df_raw, symbol=symbol, timeframe=timeframe)
+        # Feature columns: mirror trainer (exclude timestamp and target columns automatically)
+        feature_cols = get_feature_columns(df_feat)
 
         # 3. Load model (training pipeline used no scaling)
         try:
@@ -96,23 +95,24 @@ class ForexPredictor:
         last_seq = feature_matrix[-self.seq_length:]
         X = last_seq[np.newaxis, ...]
 
-        # 5. Model inference
+        # 5. Model inference (Regression output for target_return)
         raw_output = model.predict(X, verbose=0)
-
-        # Handle both single-head and dual-head (hybrid) models
-        if isinstance(raw_output, list):
-            # Hybrid: [direction_prob, predicted_price]
-            dir_prob = float(raw_output[0][0][0])
-            pred_price = float(raw_output[1][0][0])
-        else:
-            # Classification-only
-            dir_prob = float(raw_output[0][0])
-            pred_price = float(df_feat["close"].iloc[-1])  # Fallback to current
-
+        
+        # Target is target_return (log return shift 1)
+        # raw_output shape is (1, 1)
+        pred_return = float(raw_output[0][0])
+        
         # 6. Derive signal and confidence
-        signal = "BUY" if dir_prob > 0.5 else "SELL"
-        # Confidence: how far the probability is from 0.5, scaled to [0,1]
-        confidence = round(abs(dir_prob - 0.5) * 2, 4)
+        # For regression, signal depends on the sign of predicted return
+        signal = "BUY" if pred_return > 0 else "SELL"
+        # Confidence score derived from magnitude of predicted return relative to typical volatility
+        # Normalizing by ATR pct to get a sense of relative strength
+        atr_pct = float(df_feat["atr_pct"].iloc[-1])
+        confidence = min(abs(pred_return) / (atr_pct + 1e-9), 1.0)
+        
+        # Predicted price = current price * exp(pred_return)
+        current_price = float(df_feat["close"].iloc[-1])
+        pred_price = current_price * np.exp(pred_return)
 
         # Snap signal to HOLD for low-confidence predictions
         if confidence < self.cfg.get("risk", {}).get("min_confidence_threshold", 0.55) - 0.5:
@@ -135,8 +135,7 @@ class ForexPredictor:
             "symbol": symbol,
             "timeframe": timeframe,
             "signal": signal,
-            "confidence": confidence,
-            "direction_probability": round(dir_prob, 4),
+            "confidence": round(confidence, 4),
             "predicted_price": round(pred_price, 5),
             "current_price": round(current_price, 5),
             "regime": regime,

@@ -57,7 +57,11 @@ training:
 
 # ---- Feature Engineering ----
 features:
-  ema_windows: [7, 20, 50]
+  ema_windows: [12, 26, 50, 200]
+  cci_window: 20
+  ichimoku_conv: 9
+  ichimoku_base: 26
+  ichimoku_span: 52
   rsi_window: 14
   macd_fast: 12
   macd_slow: 26

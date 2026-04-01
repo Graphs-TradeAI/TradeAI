@@ -273,12 +273,13 @@ function updateMetricsUI(metrics) {
     container.style.display = 'block';
     
     const metricItems = [
-        { label: 'Hit Rate', value: (metrics.directional_accuracy * 100).toFixed(1) + '%', class: metrics.directional_accuracy > 0.5 ? 'positive' : '' },
-        { label: 'F1 Score', value: (metrics.f1_score || 0).toFixed(2), class: (metrics.f1_score || 0) > 0.5 ? 'positive' : '' },
-        { label: 'Sharpe', value: (metrics.sharpe_ratio || 0).toFixed(2), class: (metrics.sharpe_ratio || 0) > 1.5 ? 'positive' : '' },
+        { label: 'Directional Accuracy', value: (metrics.directional_accuracy * 100).toFixed(1) + '%', class: metrics.directional_accuracy > 0.5 ? 'positive' : '' },
         { label: 'Win Rate', value: (metrics.win_rate * 100).toFixed(1) + '%', class: metrics.win_rate > 0.5 ? 'positive' : '' },
-        { label: 'RR Ratio', value: (metrics.risk_reward || 0).toFixed(2), class: (metrics.risk_reward || 0) > 2.0 ? 'positive' : '' },
-        { label: 'Expectancy', value: (metrics.expectancy || 0).toFixed(4), class: (metrics.expectancy || 0) > 0 ? 'positive' : 'negative' }
+        { label: 'Sharpe Ratio', value: (metrics.sharpe_ratio || 0).toFixed(2), class: (metrics.sharpe_ratio || 0) > 1.5 ? 'positive' : '' },
+        { label: 'Max Drawdown', value: ((metrics.max_drawdown || 0) * 100).toFixed(1) + '%', class: (metrics.max_drawdown || 0) > -0.15 ? 'positive' : 'negative' },
+        { label: 'F1 Score', value: (metrics.f1_score || 0).toFixed(2), class: (metrics.f1_score || 0) > 0.5 ? 'positive' : '' },
+        { label: 'Expectancy', value: (metrics.expectancy || 0).toFixed(4), class: (metrics.expectancy || 0) > 0 ? 'positive' : 'negative' },
+        { label: 'RR Ratio', value: (metrics.rrr_ratio || 0).toFixed(2), class: (metrics.rrr_ratio || 0) > 2.0 ? 'positive' : '' }
     ];
     
     grid.innerHTML = metricItems.map(item => `

@@ -27,8 +27,8 @@ class InsightSchema(BaseModel):
     confidence: float = Field(description="Confidence score between 0.0 and 1.0")
     predicted_price: float = Field(description="Predicted next close price as a float")
     risk_level: str = Field(description="Risk level: LOW, MEDIUM, or HIGH")
-    reasoning: str = Field(description="Detailed natural language reasoning for the signal (bullet points preferred)")
-    indicators_used: List[str] = Field(description="List of indicator names that influenced the decision")
+    reasoning: str = Field(description="Concise reasoning for the signal (max 3-5 high-impact bullet points)")
+    indicators_used: List[str] = Field(description="List of primarily responsible indicator names (RSI, MACD, etc)")
 
 
 class ForexAnalyst:
@@ -57,43 +57,34 @@ class ForexAnalyst:
         indicators = prediction.get("indicators", {})
         
         prompt = f"""
-Analyze the following Forex prediction and technical data. 
-Generate a professional trading insight.
+Analyze the Forex prediction and technical indicators. Provide a CONCISE, professional insight.
+Focus reasoning ONLY on the most significant data points.
 
-=== Model Prediction ===
-Symbol: {prediction.get('symbol', 'N/A')}
-Timeframe: {prediction.get('timeframe', 'N/A')}
-Signal: {prediction.get('signal', 'HOLD')}
-Confidence: {prediction.get('confidence', 0.0):.1%}
-Predicted Price: {prediction.get('predicted_price', 0.0)}
-Current Price: {prediction.get('current_price', 0.0)}
-Market Regime: {prediction.get('regime', 'unknown')}
+=== Prediction Data ===
+Symbol: {prediction.get('symbol', 'N/A')} | TF: {prediction.get('timeframe', 'N/A')}
+Signal: {prediction.get('signal', 'HOLD')} | Confidence: {prediction.get('confidence', 0.0):.1%}
+Target: {risk.get('take_profit', 'N/A')} | Stop: {risk.get('stop_loss', 'N/A')}
+Regime: {prediction.get('regime', 'unknown')}
 
-=== Technical Indicators ===
-RSI: {indicators.get('rsi', 'N/A')}
-MACD: {indicators.get('macd', 0)} (Signal: {indicators.get('macd_signal', 0)})
-EMA 7: {indicators.get('ema_7', 0)} | EMA 20: {indicators.get('ema_20', 0)} | EMA 50: {indicators.get('ema_50', 0)}
-ATR: {indicators.get('atr', 0)}
-ADX: {indicators.get('adx', 'N/A')}
-
-=== Risk Parameters ===
-Stop Loss: {risk.get('stop_loss', 'N/A')}
-Take Profit: {risk.get('take_profit', 'N/A')}
-Position Size: {risk.get('position_size', 0)} units
-Risk Level: {risk.get('risk_level', 'MEDIUM')}
-Should Trade: {risk.get('should_trade', False)}
-
-User Context: {user_prompt if user_prompt else 'None'}
+=== Indicators ===
+RSI: {indicators.get('rsi', 'N/A')} | Stochastic (K/D): {indicators.get('stoch_k', 'N/A')}/{indicators.get('stoch_d', 'N/A')}
+MACD Gap: {indicators.get('macd_diff', 0):.6f}
+EMA Alignment: EMA12({indicators.get('ema_12', 0)}) vs EMA26({indicators.get('ema_26', 0)}) vs EMA200({indicators.get('ema_200', 0)})
+Volatility: ATR({indicators.get('atr', 0)}) | Bollinger Bands Pos: {indicators.get('bb_position', 0)}
+Trend: CCI({indicators.get('cci', 0)}) | ADX({indicators.get('adx', 'N/A')})
+Ichimoku: Conv({indicators.get('ichi_conv', 0)}) | Base({indicators.get('ichi_base', 0)})
 
 RESPONSE REQUIREMENT:
-Return ONLY a valid JSON object matching this structure:
+Return ONLY a valid JSON object. Reasoning MUST be 4-6 concise bullet points starting with '>'.
+Ensure you explicitly map and discuss the impact of at least 4 different indicators per response (e.g. RSI, MACD, EMAs, Ichimoku, etc).
+Structure:
 {{
   "signal": "BUY/SELL/HOLD",
   "confidence": 0.0-1.0,
   "predicted_price": 0.0,
   "risk_level": "LOW/MEDIUM/HIGH",
-  "reasoning": "bullet points explaining the trade",
-  "indicators_used": ["RSI", "MACD", etc]
+  "reasoning": "> bullet point\n> bullet point",
+  "indicators_used": ["Indicator1", "Indicator2"]
 }}
 """
 
@@ -161,32 +152,28 @@ Return ONLY JSON: {{"symbol": "...", "timeframe": "..."}}"""
 
     def generate_text_response(self, user_prompt: str, prediction_data: dict) -> str:
         """
-        Generate a plain-text explanation.
+        Generate an ultra-concise technical explanation focusing silently on significant data.
         """
-        rag_context = prediction_data.get('rag_context', '')
-        
         prompt = f"""
-Explain this Forex trading signal to the user in a professional way.
+Analyze the Forex setup and provide an ultra-concise breakdown.
+Focus SILENTLY only on the most significant high-impact indicators and model confidence. 
+Do NOT mention or explain why other indicators are being ignored. No fluff. No meta-commentary.
+
 User Question: {user_prompt}
 
-=== Market Data ===
-Signal: {prediction_data.get('signal', '')} for {prediction_data.get('symbol', '')}
-Confidence: {prediction_data.get('confidence', '')}
-Target: {prediction_data.get('tp', '')} | Stop: {prediction_data.get('sl', '')}
-Current Price: {prediction_data.get('current_price', '')}
+=== Setup ===
+Asset: {prediction_data.get('symbol', 'N/A')} | TF: {prediction_data.get('timeframe', 'N/A')}
+Signal: {prediction_data.get('signal', 'HOLD')} | Confidence: {prediction_data.get('confidence', '')}
+Indicators: {prediction_data.get('indicators', {})}
 """
-        if rag_context:
-            prompt += f"\n=== Knowledge Base Context (RAG) ===\n{rag_context}\n"
-            
-        prompt += "\nINSTRUCTION: If the user asks a general Forex question, use the Knowledge Base Context to provide an accurate answer. For trading signals, explain the technical setup using the Market Data."
         try:
             completion = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[
-                    {"role": "system", "content": "You are a professional Forex signal explainer. Use bullet points starting with '>'. No markdown headers."},
+                    {"role": "system", "content": "Expert technical analyst. Provide 3-5 ultra-concise bullet points starting with '>'. Direct and professional."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=self.temperature
+                temperature=0.0
             )
             return completion.choices[0].message.content.strip()
         except Exception as exc:
@@ -199,18 +186,35 @@ Current Price: {prediction_data.get('current_price', '')}
         signal = prediction.get("signal", "HOLD")
         indicators = prediction.get("indicators", {})
         rsi = indicators.get("rsi", 50)
+        macd = indicators.get("macd_diff", 0)
+        ema_12 = indicators.get("ema_12", 0)
+        ema_200 = indicators.get("ema_200", 0)
+        cci = indicators.get("cci", 0)
         regime = prediction.get("regime", "range")
 
-        indicators_used = ["RSI", "MACD", "EMA"]
+        indicators_used = ["RSI", "MACD", "EMA", "CCI"]
+        reasoning_lines = []
+        
         if isinstance(rsi, (int, float)):
             if rsi > 70:
-                reasoning = f"> RSI at {rsi:.1f} indicates overbought conditions.\n> Signal {signal} based on trend direction."
+                reasoning_lines.append(f"> RSI at {rsi:.1f} indicates overbought conditions.")
             elif rsi < 30:
-                reasoning = f"> RSI at {rsi:.1f} indicates oversold conditions.\n> Signal {signal} based on expected recovery."
+                reasoning_lines.append(f"> RSI at {rsi:.1f} indicates oversold conditions.")
             else:
-                reasoning = f"> Market is in {regime} regime.\n> EMA alignment and MACD direction support the {signal} signal."
-        else:
-            reasoning = f"> Directional signal is {signal}.\n> Based on machine learning model confidence of {prediction.get('confidence', 0.0):.1%}."
+                reasoning_lines.append(f"> RSI at {rsi:.1f} suggests neutral momentum.")
+                
+        if isinstance(macd, (int, float)):
+            trend = "bullish" if macd > 0 else "bearish"
+            reasoning_lines.append(f"> MACD gap ({macd:.5f}) confirms {trend} momentum.")
+            
+        if isinstance(ema_12, (int, float)) and isinstance(ema_200, (int, float)):
+            alignment = "bullish" if ema_12 > ema_200 else "bearish"
+            reasoning_lines.append(f"> EMA12 vs EMA200 indicates {alignment} tracking, aligning with {signal}.")
+            
+        if isinstance(cci, (int, float)):
+            reasoning_lines.append(f"> CCI is positioned at {cci:.1f}, confirming the {regime} classification.")
+
+        reasoning = "\\n".join(reasoning_lines)
 
         return {
             "signal": signal,

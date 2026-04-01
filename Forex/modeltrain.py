@@ -8,7 +8,7 @@ from keras.layers import LSTM, Dense, Dropout, Input
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 
 from client import TwelveDataClient
-from processing import build_forex_feature_set
+from indicators import build_features, get_feature_columns
 from registry import ModelRegistry
 
 
@@ -27,10 +27,7 @@ class ForexTrainer:
         df = df.copy()
 
         if feature_cols is None:
-            feature_cols = [
-                c for c in df.columns
-                if c not in ["timestamp", "target_price", "target_return"]
-            ]
+            feature_cols = get_feature_columns(df)
 
         X, y = [], []
 
@@ -101,8 +98,8 @@ class ForexTrainer:
     # ----------------------------
     def train_model_for_pair(
         self,
-        symbol="EUR/USD",
-        timeframe="30min",
+        symbol="AUD/USD",
+        timeframe="1day",
         epochs=100,
         batch_size=64
     ):
@@ -117,7 +114,7 @@ class ForexTrainer:
         )
 
         # 2. Feature engineering
-        df_features = build_forex_feature_set(
+        df_features = build_features(
             df,
             symbol=symbol,
             timeframe=timeframe
@@ -150,8 +147,9 @@ class ForexTrainer:
         model.summary()
 
         # 8. Paths
+        model_dir = self.registry._pair_dir(symbol, timeframe)
+        os.makedirs(model_dir, exist_ok=True)
         model_path = self.registry._pair_model_path(symbol, timeframe)
-        os.makedirs(os.path.dirname(model_path), exist_ok=True)
 
         # 9. Callbacks
         checkpoint = ModelCheckpoint(
@@ -159,15 +157,14 @@ class ForexTrainer:
             monitor="val_loss",
             save_best_only=True,
             verbose=1,
-            mode=min
+            # No mode=min here, it should be mode='min' or auto
         )
 
         early_stop = EarlyStopping(
             monitor="val_loss",
-            patience=4,
+            patience=self.registry.cfg.get("training", {}).get("patience", 4),
             restore_best_weights=True,
-            verbose=1,
-            mode=min
+            verbose=1
         )
 
         # 10. Train
@@ -193,8 +190,8 @@ if __name__ == "__main__":
 
     try:
         trainer.train_model_for_pair(
-            symbol="EUR/USD",
-            timeframe="30min",
+            symbol="AUD/USD",
+            timeframe="1day",
             epochs=100
         )
     except Exception as e:

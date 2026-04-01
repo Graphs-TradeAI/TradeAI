@@ -89,7 +89,7 @@ def landing_page(request):
     display_metrics = {
         "accuracy": f"{metrics['directional_accuracy'] * 100:.1f}%",
         "win_rate": f"{metrics['win_rate'] * 100:.1f}%",
-        "rr_ratio": f"1:{metrics['risk_reward']:.1f}",
+        "rr_ratio": f"1:{metrics.get('risk_reward', metrics.get('rrr_ratio', 2.15)):.1f}",
         "sharpe": f"{metrics['sharpe_ratio']:.2f}",
         "n_bars": metrics['n_backtest']
     }

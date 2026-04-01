@@ -5,7 +5,6 @@ import os
 from typing import Optional, Tuple
 
 import joblib
-import tensorflow as tf
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +45,7 @@ class ModelRegistry:
         # ─────────────────────────────────────────────
         if models_root is None:
             project_root = self._project_root()
-            models_root = os.path.join(project_root,"TradeAI","Forex", "Models")
+            models_root = os.path.join(project_root, "Forex", "Models")
 
         self.models_root = models_root
 
@@ -59,7 +58,8 @@ class ModelRegistry:
     # MODEL LOADING
     # ─────────────────────────────────────────────
 
-    def load_model(self, symbol: str, timeframe: str) -> Tuple[tf.keras.Model, str]:
+    def load_model(self, symbol: str, timeframe: str) -> Tuple[object, str]:
+        import tensorflow as tf
         pair_path = self._pair_model_path(symbol, timeframe)
         global_path = os.path.join(self.models_root, self.global_model)
 
@@ -127,12 +127,15 @@ class ModelRegistry:
         return results
 
     # ─────────────────────────────────────────────
-    # PATH HELPERS
-    # ─────────────────────────────────────────────
+    # ── PATH HELPERS ──────────────────────────────────────────────────────────
 
     def _pair_dir(self, symbol: str, timeframe: str) -> str:
-        symbol = symbol.replace("/", "")
-        return os.path.join(self.models_root, symbol, timeframe)
+        """Standardized directory: Models/EURUSD/1h/"""
+        # Normalize symbol: EUR/USD -> EURUSD
+        pair_tag = symbol.replace("/", "").upper()
+        # Normalize timeframe: 1H -> 1h
+        tf_tag = timeframe.lower()
+        return os.path.join(self.models_root, pair_tag, tf_tag)
 
     def _pair_model_path(self, symbol: str, timeframe: str) -> str:
         return os.path.join(self._pair_dir(symbol, timeframe), self.model_filename)
@@ -140,12 +143,11 @@ class ModelRegistry:
     def _pair_scaler_path(self, symbol: str, timeframe: str) -> str:
         return os.path.join(self._pair_dir(symbol, timeframe), self.scaler_filename)
 
-    # ─────────────────────────────────────────────
-    # FIXED PROJECT ROOT
-    # ─────────────────────────────────────────────
-
     @staticmethod
     def _project_root() -> str:
-        return os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..")
-        )
+        """Find the TradeAI project root."""
+        # Current file: /home/.../TradeAI/Forex/registry.py
+        current_file = os.path.abspath(__file__)
+        # dirname: /home/.../TradeAI/Forex/
+        # parent dirname: /home/.../TradeAI/
+        return os.path.dirname(os.path.dirname(current_file))

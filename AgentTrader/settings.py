@@ -49,14 +49,21 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+]
+
+try:
+    import whitenoise
+    MIDDLEWARE.append('whitenoise.middleware.WhiteNoiseMiddleware')
+except ImportError:
+    pass
+
+MIDDLEWARE += [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
- 
 ]
 
 ROOT_URLCONF = 'AgentTrader.urls'
@@ -80,18 +87,30 @@ WSGI_APPLICATION = 'AgentTrader.wsgi.application'
 
 
 # Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'tradeaidb',
-        'USER': 'tradeai_user',
-        'PASSWORD': config('DB_PASSWORD'), # CHANGE THIS: Update with your Postgres password
-        'HOST': 'localhost',
-        'PORT': '5432',
+# Priority: DATABASE_URL > Manual Postgres config > SQLite
+db_url = config('DATABASE_URL', default=None)
+if db_url:
+    DATABASES = {
+        'default': dj_database_url.config(default=db_url, conn_max_age=600)
     }
-}
+elif config('DB_PASSWORD', default=None):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'tradeaidb',
+            'USER': 'tradeai_user',
+            'PASSWORD': config('DB_PASSWORD'),
+            'HOST': config('DB_HOST', 'localhost'),
+            'PORT': config('DB_PORT', '5432'),
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 #DATABASES['default'] = dj_database_url.parse(config('DATABASE_URL'))
 

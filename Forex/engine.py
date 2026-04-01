@@ -11,13 +11,12 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from loader import DataLoader
-from processing import build_forex_feature_set
-from indicators import get_indicator_snapshot
-from registry import ModelNotFoundError, ModelRegistry
-from risk_engine import RiskEngine
-from evaluator import Evaluator
-from preprocessor import Preprocessor
+from Forex.loader import DataLoader
+from Forex.indicators import build_features, get_feature_columns, get_indicator_snapshot
+from Forex.registry import ModelNotFoundError, ModelRegistry
+from Forex.risk_engine import RiskEngine
+from Forex.evaluator import Evaluator
+from Forex.preprocessor import Preprocessor
 
 logger = logging.getLogger(__name__)
 
@@ -79,30 +78,20 @@ class BacktestEngine:
         logger.info("Loaded %d rows for backtest", len(df_raw))
 
         # 2. Build full feature set
-        # Using build_forex_feature_set to match trainer/inference
-        df_feat = build_forex_feature_set(df_raw, symbol=symbol, timeframe=timeframe)
+        # Using build_features to match trainer/inference
+        df_feat = build_features(df_raw, symbol=symbol, timeframe=timeframe)
         
-        # Feature columns: mirror trainer (exclude timestamp, target_price, target_return)
-        feature_cols = [c for c in df_feat.columns if c not in ("timestamp", "target_price", "target_return")]
+        # Feature columns: mirror trainer (exclude timestamp and target columns automatically)
+        feature_cols = get_feature_columns(df_feat)
 
-        # 3. Load model + scaler
+        # 3. Load model (Scale-free regression)
         try:
             model, source = self.registry.load_model(symbol, timeframe)
         except ModelNotFoundError as exc:
             raise RuntimeError(f"Cannot run backtest: {exc}")
 
-        try:
-            scaler = self.registry.load_scaler(symbol, timeframe)
-            preprocessor = Preprocessor(self.registry.models_root, self.cfg)
-            preprocessor.scaler = scaler
-            preprocessor._fitted = True
-            # Scale dataset
-            scaled = preprocessor.transform(df_feat, feature_cols)
-        except ModelNotFoundError:
-            logger.warning("No scaler found for %s %s. Using raw features.", symbol, timeframe)
-            scaled = df_feat[feature_cols].values
-
         # 4. Walk-forward simulation
+        X_all = df_feat[feature_cols].values
         equity = account_balance
         equity_curve: List[float] = [equity]
         trade_log: List[dict] = []
@@ -113,24 +102,22 @@ class BacktestEngine:
 
         for i in range(min_idx, n - 1, step_size):
             # Slice sequence up to current candle (no future data)
-            seq = scaled[i - self.seq_length : i]
+            seq = X_all[i - self.seq_length : i]
             X = seq[np.newaxis, ...]
 
-            # Generate prediction
+            # Generate prediction (Regression: target_return)
             raw = model.predict(X, verbose=0)
-            if isinstance(raw, list):
-                dir_prob = float(raw[0][0][0])
-            else:
-                dir_prob = float(raw[0][0])
+            pred_return = float(raw[0][0])
 
-            signal = "BUY" if dir_prob > 0.5 else "SELL"
-            confidence = abs(dir_prob - 0.5) * 2
-
+            signal = "BUY" if pred_return > 0 else "SELL"
+            
             current_row = df_feat.iloc[i]
+            atr_pct = float(current_row.get("atr_pct", 0.001))
+            confidence = min(abs(pred_return) / (atr_pct + 1e-9), 1.0)
+
             entry_price = float(current_row["close"]) + (
                 self.slippage if signal == "BUY" else -self.slippage
             )
-            # Match Processing.py naming (atr_14)
             atr = float(current_row.get("atr_14", current_row.get("atr", entry_price * 0.002)))
 
             # Risk management filters

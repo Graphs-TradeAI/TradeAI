@@ -11,14 +11,14 @@ from typing import Optional
 
 import pandas as pd
 
-from client import TwelveDataClient
+from Forex.client import TwelveDataClient
 
 logger = logging.getLogger(__name__)
 
 
 def _load_cfg() -> dict:
     import yaml
-    cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
+    cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
     with open(cfg_path, "r") as f:
         return yaml.safe_load(f)
 
@@ -45,10 +45,8 @@ class DataLoader:
 
         # Cache directory: project_root/data_cache/
         if cache_dir is None:
-            # Navigate up from MLmodels/Forex/data_layer/ → project root
-            project_root = os.path.dirname(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-            )
+            # Navigate up from Forex/loader.py → project root
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             cache_dir = os.path.join(project_root, "data_cache")
         self.cache_dir = cache_dir
 

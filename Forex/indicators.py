@@ -12,7 +12,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from ta.momentum import RSIIndicator, StochasticOscillator
-from ta.trend import ADXIndicator, EMAIndicator, MACD
+from ta.trend import ADXIndicator, EMAIndicator, MACD, CCIIndicator, IchimokuIndicator
 from ta.volatility import AverageTrueRange, BollingerBands
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 def _load_cfg() -> dict:
     import yaml
-    cfg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
+    cfg_path = os.path.join(os.path.dirname(__file__), "config.yaml")
     with open(cfg_path, "r") as f:
         return yaml.safe_load(f)
 
@@ -57,7 +57,7 @@ def build_features(
     df = df.sort_values("timestamp").reset_index(drop=True)
 
     # Validate minimum rows
-    min_rows = 60
+    min_rows = 220 # Increased because EMA 200 needs 200 rows
     if len(df) < min_rows:
         raise ValueError(
             f"Insufficient data ({len(df)} rows) — need at least {min_rows} for feature engineering."
@@ -86,15 +86,28 @@ def build_features(
     df["atr_ratio"] = df["atr"] / df["atr"].rolling(20).mean()
 
     # ── Trend Indicators ──────────────────────────────────────────────────
-    ema_windows = feat_cfg.get("ema_windows", [7, 20, 50])
+    ema_windows = feat_cfg.get("ema_windows", [12, 26, 50, 200])
     for w in ema_windows:
         df[f"ema_{w}"] = EMAIndicator(df["close"], window=w).ema_indicator()
 
     # EMA cross ratios (price relative to EMA)
-    df["price_ema7_ratio"] = df["close"] / df["ema_7"] - 1
-    df["price_ema20_ratio"] = df["close"] / df["ema_20"] - 1
-    df["ema7_ema20_ratio"] = df["ema_7"] / df["ema_20"] - 1
-    df["ema20_ema50_ratio"] = df["ema_20"] / df["ema_50"] - 1
+    df["price_ema12_ratio"] = df["close"] / df.get("ema_12", df["close"]) - 1
+    df["price_ema26_ratio"] = df["close"] / df.get("ema_26", df["close"]) - 1
+    df["ema12_ema26_ratio"] = df.get("ema_12", df["close"]) / df.get("ema_26", df["close"]) - 1
+    df["ema26_ema50_ratio"] = df.get("ema_26", df["close"]) / df.get("ema_50", df["close"]) - 1
+    df["ema50_ema200_ratio"] = df.get("ema_50", df["close"]) / df.get("ema_200", df["close"]) - 1
+
+    # ── Ichimoku ──────────────────────────────────────────────────────────
+    ichi = IchimokuIndicator(
+        high=df["high"], low=df["low"], 
+        window1=feat_cfg.get("ichimoku_conv", 9),
+        window2=feat_cfg.get("ichimoku_base", 26), 
+        window3=feat_cfg.get("ichimoku_span", 52)
+    )
+    df["ichi_conv"] = ichi.ichimoku_conversion_line()
+    df["ichi_base"] = ichi.ichimoku_base_line()
+    df["ichi_spana"] = ichi.ichimoku_a()
+    df["ichi_spanb"] = ichi.ichimoku_b()
 
     adx_window = feat_cfg.get("adx_window", 14)
     adx = ADXIndicator(df["high"], df["low"], df["close"], window=adx_window)
@@ -115,6 +128,11 @@ def build_features(
     df["stoch_k"] = stoch.stoch()
     df["stoch_d"] = stoch.stoch_signal()
     df["stoch_diff"] = df["stoch_k"] - df["stoch_d"]
+
+    # ── CCI ───────────────────────────────────────────────────────────────
+    cci_window = feat_cfg.get("cci_window", 20)
+    df["cci"] = CCIIndicator(df["high"], df["low"], df["close"], window=cci_window).cci()
+    df["cci_norm"] = df["cci"] / 100.0
 
     # ── MACD ─────────────────────────────────────────────────────────────
     macd = MACD(
@@ -177,6 +195,9 @@ def build_features(
 
     # Regression target: predicted next close price
     df["target_price"] = df["close"].shift(-1)
+    
+    # Regression target (STABLE): predicted next log return
+    df["target_return"] = df["log_return"].shift(-1)
 
     # 5-candle forward return (for winrate / Sharpe use)
     df["target_return_5"] = (df["close"].shift(-5) - df["close"]) / df["close"]
@@ -190,7 +211,7 @@ def build_features(
 
 def get_feature_columns(df: pd.DataFrame) -> list[str]:
     """Return feature columns (exclude timestamp and target columns)."""
-    exclude = {"timestamp", "target_direction", "target_price", "target_return_5"}
+    exclude = {"timestamp", "target_direction", "target_price", "target_return", "target_return_5"}
     return [c for c in df.columns if c not in exclude]
 
 
@@ -205,9 +226,13 @@ def get_indicator_snapshot(df: pd.DataFrame) -> dict:
         "macd": round(float(last.get("macd", 0)), 6),
         "macd_signal": round(float(last.get("macd_signal", 0)), 6),
         "macd_diff": round(float(last.get("macd_diff", 0)), 6),
-        "ema_7": round(float(last.get("ema_7", 0)), 5),
-        "ema_20": round(float(last.get("ema_20", 0)), 5),
+        "ema_12": round(float(last.get("ema_12", 0)), 5),
+        "ema_26": round(float(last.get("ema_26", 0)), 5),
         "ema_50": round(float(last.get("ema_50", 0)), 5),
+        "ema_200": round(float(last.get("ema_200", 0)), 5),
+        "cci": round(float(last.get("cci", 0)), 2),
+        "ichi_conv": round(float(last.get("ichi_conv", 0)), 5),
+        "ichi_base": round(float(last.get("ichi_base", 0)), 5),
         "atr": round(float(last.get("atr", 0)), 6),
         "atr_pct": round(float(last.get("atr_pct", 0)), 6),
         "adx": round(float(last.get("adx", 0)), 2),

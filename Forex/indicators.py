@@ -168,10 +168,14 @@ def build_features(
     df.loc[df["atr"] > 1.5 * atr_ma, "regime"] = 3
 
     # ── Volume (if available) ─────────────────────────────────────────────
-    if "volume" in df.columns and df["volume"].sum() > 0:
+    if "volume" not in df.columns:
+        df["volume"] = 0.0
+
+    if df["volume"].sum() > 0:
         df["volume_ma"] = df["volume"].rolling(20).mean()
         df["volume_ratio"] = df["volume"] / (df["volume_ma"] + 1e-9)
     else:
+        df["volume_ma"] = 0.0
         df["volume_ratio"] = 1.0
 
     # ── News/Sentiment Integration ────────────────────────────────────────

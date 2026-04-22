@@ -9,7 +9,7 @@ def test_unit_inference_uses_audusd_defaults(monkeypatch):
 
     # Dummy predictor returning expected fields
     class DummyPredictor:
-        def predict(self, symbol, timeframe):
+        def predict(self, symbol, timeframe, output_size=500):
             assert symbol == "AUD/USD"
             return {
                 "symbol": symbol,
@@ -41,8 +41,8 @@ def test_unit_inference_uses_audusd_defaults(monkeypatch):
 
     inf = ModelInference(api_key=None)
     # Inject mocks
-    monkeypatch.setattr(inf, "predictor", DummyPredictor())
-    monkeypatch.setattr(inf, "risk_engine", DummyRisk())
+    inf._predictor = DummyPredictor()
+    inf._risk_engine = DummyRisk()
 
     out = inf.predict()
 

@@ -103,5 +103,5 @@ whitenoise==6.11.0
 wrapt==2.0.1
 # XGBoost for hybrid model volatile-regime fallback
 xgboost>=2.0.0
-zope.interface==8.1.1
 pytest>=7.0.0
+django-allauth==0.61.1

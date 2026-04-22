@@ -32,7 +32,7 @@ class ModelSelectionAgent:
     @property
     def predictor(self):
         if self._predictor is None:
-            from MLmodels.Forex.inference.predictor import ForexPredictor
+            from Forex.predictor import ForexPredictor
             self._predictor = ForexPredictor(api_key=self.api_key)
         return self._predictor
 
@@ -75,9 +75,27 @@ class ModelSelectionAgent:
     def list_available_models(self) -> list:
         """List all trained models available in the registry."""
         try:
-            from MLmodels.Forex.models.registry import ModelRegistry
+            from Forex.registry import ModelRegistry
             registry = ModelRegistry()
-            return registry.list_available()
+            models = registry.list_available()
+            best = registry.select_best_available()
+            if best:
+                for item in models:
+                    item["is_recommended"] = (
+                        item["symbol"] == best["symbol"] and item["timeframe"] == best["timeframe"]
+                    )
+            return models
         except Exception as exc:
             logger.error("Could not list models: %s", exc)
             return []
+
+    def select_best_model(self) -> dict:
+        """Return the current best trained model based on saved metrics."""
+        try:
+            from Forex.registry import ModelRegistry
+            registry = ModelRegistry()
+            best = registry.select_best_available()
+            return best or {}
+        except Exception as exc:
+            logger.error("Could not select best model: %s", exc)
+            return {}

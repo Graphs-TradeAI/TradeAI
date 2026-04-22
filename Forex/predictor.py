@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+import hashlib
 from typing import Optional
 
 import numpy as np
@@ -22,18 +23,6 @@ def _load_cfg() -> dict:
 
 
 class ForexPredictor:
-    """
-    End-to-end inference for a (symbol, timeframe) pair.
-
-    Pipeline
-    --------
-    1. Fetch recent OHLCV via DataLoader
-    2. Build features via feature_engineering
-    3. Scale with saved per-pair scaler
-    4. Create last sequence window
-    5. Run model prediction
-    6. Return structured PredictionResult dict
-    """
 
     def __init__(
         self,
@@ -53,19 +42,11 @@ class ForexPredictor:
 
     def predict(
         self,
-        symbol: str = "AUD/USD",
-        timeframe: str = "1h",
+        symbol: str,
+        timeframe: str,
         output_size: int = 500,
     ) -> dict:
-        """
-        Run a full prediction for (symbol, timeframe).
-
-        Returns
-        -------
-        dict:
-            symbol, timeframe, signal, confidence, predicted_price,
-            current_price, regime, risk_level, indicators, timestamp
-        """
+      
         logger.info("Predicting %s %s", symbol, timeframe)
 
         # 1. Fetch recent data
@@ -77,15 +58,42 @@ class ForexPredictor:
 
         # 2. Feature engineering (USE TRAINING FEATURE PIPELINE)
         df_feat = build_features(df_raw, symbol=symbol, timeframe=timeframe)
-        # Feature columns: mirror trainer (exclude timestamp and target columns automatically)
-        feature_cols = get_feature_columns(df_feat)
+        # Feature columns: strict training contract when available.
+        metrics = self.registry.load_metrics(symbol, timeframe) or {}
+        expected_feature_cols = metrics.get("feature_columns")
+        if isinstance(expected_feature_cols, list) and expected_feature_cols:
+            missing = [c for c in expected_feature_cols if c not in df_feat.columns]
+            if missing:
+                raise ValueError(
+                    f"Missing required training features for {symbol} {timeframe}: {missing}"
+                )
+            feature_cols = expected_feature_cols
+        else:
+            feature_cols = get_feature_columns(df_feat)
 
-        # 3. Load model (training pipeline used no scaling)
         try:
             model, source = self.registry.load_model(symbol, timeframe)
         except ModelNotFoundError as exc:
             logger.error("Model not found: %s", exc)
             raise
+
+        # Optional feature-contract validation against training metadata.
+        expected_n_features = metrics.get("n_features")
+        if expected_n_features is not None and int(expected_n_features) != len(feature_cols):
+            raise ValueError(
+                f"Feature count mismatch for {symbol} {timeframe}: "
+                f"inference={len(feature_cols)} expected={expected_n_features}"
+            )
+
+        expected_hash = metrics.get("feature_columns_hash")
+        if expected_hash:
+            signature = "|".join(feature_cols)
+            current_hash = hashlib.sha256(signature.encode("utf-8")).hexdigest()
+            if current_hash != expected_hash:
+                raise ValueError(
+                    f"Feature contract hash mismatch for {symbol} {timeframe}. "
+                    "Retrain model or align feature pipeline."
+                )
 
         # 4. Build last sequence directly from engineered features (matches trainer)
         feature_matrix = df_feat[feature_cols].values
@@ -95,27 +103,35 @@ class ForexPredictor:
         last_seq = feature_matrix[-self.seq_length:]
         X = last_seq[np.newaxis, ...]
 
-        # 5. Model inference (Regression output for target_return)
+        # 5. Model inference (supports legacy single-output and new multi-output models)
         raw_output = model.predict(X, verbose=0)
-        
-        # Target is target_return (log return shift 1)
-        # raw_output shape is (1, 1)
-        pred_return = float(raw_output[0][0])
-        
-        # 6. Derive signal and confidence
-        # For regression, signal depends on the sign of predicted return
+
+        pred_return, direction_probability = self._parse_model_output(raw_output)
         signal = "BUY" if pred_return > 0 else "SELL"
+        if direction_probability is not None:
+            signal = "BUY" if direction_probability >= 0.5 else "SELL"
+
         # Confidence score derived from magnitude of predicted return relative to typical volatility
         # Normalizing by ATR pct to get a sense of relative strength
         atr_pct = float(df_feat["atr_pct"].iloc[-1])
-        confidence = min(abs(pred_return) / (atr_pct + 1e-9), 1.0)
+        reg_confidence = min(max(abs(pred_return) / (atr_pct + 1e-9), 0.0), 1.0)
+        if direction_probability is not None:
+            cls_confidence = min(max(abs(direction_probability - 0.5) * 2.0, 0.0), 1.0)
+            confidence = round(0.6 * cls_confidence + 0.4 * reg_confidence, 4)
+        else:
+            confidence = reg_confidence
         
         # Predicted price = current price * exp(pred_return)
         current_price = float(df_feat["close"].iloc[-1])
         pred_price = current_price * np.exp(pred_return)
 
         # Snap signal to HOLD for low-confidence predictions
-        if confidence < self.cfg.get("risk", {}).get("min_confidence_threshold", 0.55) - 0.5:
+        risk_cfg = self.cfg.get("risk", {})
+        hold_threshold = risk_cfg.get(
+            "hold_confidence_threshold",
+            risk_cfg.get("min_confidence_threshold", 0.55),
+        )
+        if confidence < hold_threshold:
             signal = "HOLD"
 
         # 7. Risk level from confidence + regime
@@ -136,6 +152,11 @@ class ForexPredictor:
             "timeframe": timeframe,
             "signal": signal,
             "confidence": round(confidence, 4),
+            "direction_probability": (
+                round(float(direction_probability), 4)
+                if direction_probability is not None
+                else None
+            ),
             "predicted_price": round(pred_price, 5),
             "current_price": round(current_price, 5),
             "regime": regime,
@@ -151,10 +172,43 @@ class ForexPredictor:
         )
         return result
 
+    @staticmethod
+    def _parse_model_output(raw_output) -> tuple[float, Optional[float]]:
+        """
+        Parse keras predict output.
+        Returns:
+            (predicted_log_return, direction_probability_or_none)
+        """
+        # New multi-output models may return dict keyed by output names.
+        if isinstance(raw_output, dict):
+            reg = raw_output.get("return_head")
+            cls = raw_output.get("direction_head")
+            pred_return = float(np.ravel(reg)[0]) if reg is not None else 0.0
+            direction_probability = float(np.ravel(cls)[0]) if cls is not None else None
+            if direction_probability is not None:
+                direction_probability = min(max(direction_probability, 0.0), 1.0)
+            return pred_return, direction_probability
+
+        # Multi-output list/tuple: [return_head, direction_head]
+        if isinstance(raw_output, (list, tuple)):
+            if len(raw_output) == 0:
+                raise ValueError("Empty model prediction output")
+            pred_return = float(np.ravel(raw_output[0])[0])
+            direction_probability = None
+            if len(raw_output) >= 2 and raw_output[1] is not None:
+                direction_probability = float(np.ravel(raw_output[1])[0])
+                direction_probability = min(max(direction_probability, 0.0), 1.0)
+            return pred_return, direction_probability
+
+        # Legacy single-output model.
+        pred_return = float(np.ravel(raw_output)[0])
+        return pred_return, None
+
     def predict_multi_timeframe(
         self,
         symbol: str,
         timeframes: Optional[list] = None,
+        output_size: int = 500,
     ) -> dict:
         """
         Predict across multiple timeframes for the same symbol.
@@ -164,7 +218,11 @@ class ForexPredictor:
         results = {}
         for tf in timeframes:
             try:
-                results[tf] = self.predict(symbol, tf)
+                results[tf] = self.predict(
+                    symbol=symbol,
+                    timeframe=tf,
+                    output_size=output_size,
+                )
             except Exception as exc:
                 logger.warning("Failed prediction for %s %s: %s", symbol, tf, exc)
                 results[tf] = {"error": str(exc)}

@@ -1,82 +1,106 @@
 # TradeAI
 
-TradeAI is a modular, explainable, production-ready AI platform for Forex trading analysis and prediction. It combines deep learning, feature engineering, and LLM-powered explainability in a modern Django web app.
+TradeAI is a Django-based Forex analysis platform with:
+- Config-driven multi-pair/multi-timeframe model training
+- Multitask deep learning inference (return regression + direction classification)
+- Risk-engine filtered trading signals (`BUY` / `SELL` / `HOLD`)
+- LLM-generated reasoning on top of deterministic model/risk outputs
+- Backtesting and model registry support
 
-## Features
+## Active System Architecture
 
-- **Multi-timeframe, multi-pair support:** EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/USD, USD/CAD, NZD/USD, and more.
-- **Modular ML pipeline:** Data loading, feature engineering (RSI, MACD, EMA, etc), LSTM/hybrid models, per-pair/timeframe.
-- **Incremental retraining & backtesting:** Update models with new data, simulate historical performance.
-- **LLM explainability:** Gemini via LangChain interprets model outputs and generates human-readable trading insights.
-- **Modern web UI:** Django-based, with dropdowns for pair/timeframe, chat-style prompt, and structured analysis output.
-- **API endpoints:** For chat, prediction, and backtesting.
-- **Docker & Kubernetes ready:** Production deployment with Postgres, Redis, Gunicorn, and scalable cloud support.
+### Core runtime modules
+- `Forex/indicators.py`: Single source of truth for feature engineering and targets.
+- `Forex/modeltrain.py`: Config-driven trainer (`pairs x timeframes`) with multitask LSTM heads:
+  - `return_head` -> predicts next log return (`target_return`)
+  - `direction_head` -> predicts up/down probability (`target_direction`)
+- `Forex/predictor.py`: Real-time inference with strict feature-contract validation from `metrics.json`.
+- `Forex/risk_engine.py`: Position sizing, SL/TP, and trade filters.
+- `Forex/engine.py`: Backtest simulation using the same model contract as inference.
+- `Forex/registry.py`: Model/metrics storage and model discovery.
+- `AgentApp/inference.py`: Adapter that unifies predictor + risk output for APIs/UI.
+- `AgentApp/views.py`: API endpoints and dashboard pages.
 
-## System Overview
+### Removed legacy modules
+The following legacy files were removed because they were not used by the active runtime path:
+- `Forex/processing.py`
+- `Forex/preprocessor.py`
+- `Forex/twelvedata.py`
+- `Forex/backtester.py`
+- `Forex/risk_manager.py`
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for a full architecture, training/inference pipeline, and deployment guide.
+## Setup
 
-**Key components:**
+1. Create and activate a virtual environment.
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+3. Configure `.env`:
+- `SECRET_KEY`
+- `DEBUG`
+- `ALLOWED_HOSTS`
+- `TWELVE_DATA_API_KEY`
+- `GROQ_API_KEY`
+- Optional DB/email settings
 
-- Data Layer: Twelve Data API client for OHLCV, multi-timeframe, paginated.
-- Model Layer: Per-pair/timeframe LSTM/hybrid models, dynamic loading.
-- Training Pipeline: Modular, supports incremental retraining and backtesting.
-- Inference Layer: Loads correct model/scaler, preprocesses, predicts.
-- LLM Layer: Gemini via LangChain for explainable, structured insights.
-- Interface: Django web UI and REST API.
+4. Run migrations:
+```bash
+.venv/bin/python manage.py migrate
+```
 
-## Quickstart
+5. Start app:
+```bash
+.venv/bin/python manage.py runserver
+```
 
-### Local/Docker
+## Training
 
-1. Clone the repo and set up `.env` with your API keys and DB credentials.
-2. Build and run:
-   ```bash
-   docker-compose up --build
-   ```
-3. Access at [http://localhost:8000](http://localhost:8000)
+### Train all configured pairs/timeframes
+Reads `pairs` and `timeframes` from `Forex/config.yaml` and trains all combinations:
+```bash
+.venv/bin/python -m Forex.modeltrain
+```
 
-### Model Training & Fine-tuning
+### Programmatic subset training
+```python
+from Forex.modeltrain import ForexTrainer
 
-- Train a model:
-  ```bash
-  python -m MLmodels.Forex.training.trainer --symbol "EUR/USD" --timeframe "1h"
-  ```
-- Fine-tune:
-  ```bash
-  python -m MLmodels.Forex.model_finetune --symbol "GBP/USD" --timeframe "15min" --epochs 30
-  ```
-- Incremental retrain:
-  ```bash
-  python -m MLmodels.Forex.training.incremental --symbol "USD/JPY" --timeframe "1h" --lookback_days 30
-  ```
+trainer = ForexTrainer()
+trainer.train_from_config(
+    pairs=["AUD/USD", "EUR/USD"],
+    timeframes=["1h", "4h"],
+)
+```
 
-### Web UI Usage
+Models and metrics are saved under `Forex/Models/<PAIR>/<timeframe>/`.
 
-1. Log in or sign up.
-2. Select a currency pair and timeframe from the dropdowns.
-3. Enter a prompt or click "Analyze" to get a prediction and structured, explainable analysis.
+## Inference and API
 
-### API Usage
+### Main endpoints
+- `POST /api/chat/`: legacy chat + prediction + metrics payload
+- `POST /api/predict/`: structured signal + risk + reasoning
+- `POST /api/backtest/`: backtest report + recent trades
+- `GET /api/models/`: available trained models + recommended model
 
-- `/api/chat/` — Chat-style prompt + prediction
-- `/api/predict/` — Structured prediction
-- `/api/backtest/` — Backtesting
+### Signal generation flow
+1. Fetch latest candles
+2. Build features with `indicators.py`
+3. Enforce feature contract saved at training time
+4. Run model:
+   - Return head -> predicted return / predicted price
+   - Direction head -> direction probability
+5. Combine confidence and apply `HOLD` threshold
+6. Run risk checks and generate trade parameters
 
-## Metrics Example
+## Validation Commands
 
-| Instrument Type         | Avg Price | Validation MAE | Relative Accuracy |
-| ----------------------- | --------- | -------------- | ----------------- |
-| Low-price FX (EUR/USD)  | ~1.0      | ~0.003–0.004   | ~99.6–99.7%       |
-| High-price FX (USD/JPY) | ~150      | ~0.30–0.40     | ~99.7–99.8%       |
+```bash
+.venv/bin/python -m compileall Forex AgentApp tests -q
+DEBUG=True .venv/bin/python manage.py check
+```
 
-## Conclusion
+## Notes
 
-- Models generalize well across low- and high-priced FX instruments
-- High relative accuracy (~99.7%) confirms strong price prediction
-- Higher timeframe models provide a usable directional edge
-- Lower timeframe models are better suited for smoothing and confirmation, not direct entry signals
-
----
-
-For full details on architecture, training, inference, and deployment, see [DEPLOYMENT.md](DEPLOYMENT.md).
+- If `pytest` is not installed, `tests/` cannot be executed via pytest until it is added.
+- Production readiness still depends on operational controls (monitoring, broker reconciliation, staged rollout, drift alerts), even when code-level checks pass.

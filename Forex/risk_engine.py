@@ -251,6 +251,13 @@ class RiskEngine:
             daily_trade_count, current_drawdown
         )
 
+        if tradeable and constraint_ok:
+            reason = "OK"
+        elif not tradeable:
+            reason = filter_reason
+        else:
+            reason = constraint_reason
+
         return {
             "stop_loss": stop_loss,
             "take_profit": take_profit,
@@ -260,6 +267,6 @@ class RiskEngine:
             "risk_reward_ratio": round(self.rr_ratio, 2),
             "amount_at_risk": round(account_balance * self.risk_per_trade, 2),
             "should_trade": tradeable and constraint_ok,
-            "filter_reason": filter_reason if not tradeable else constraint_reason,
+            "filter_reason": reason,
             "atr_used": round(atr, 6),
         }

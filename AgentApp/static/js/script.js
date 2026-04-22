@@ -165,6 +165,17 @@ function typingEffect(element) {
 }
 
 function addTradeCard(data) {
+    const requiredNumericFields = ["current_price", "predicted_close", "tp", "sl"];
+    const hasRequiredValues = requiredNumericFields.every((field) => {
+        const value = Number(data[field]);
+        return Number.isFinite(value);
+    });
+
+    if (!hasRequiredValues) {
+        console.warn("Trade card skipped due to incomplete numeric payload:", data);
+        return;
+    }
+
     const chatArea = document.getElementById('chatArea');
     const cardDiv = document.createElement('div');
     cardDiv.classList.add('trade-card');
@@ -177,7 +188,11 @@ function addTradeCard(data) {
     cardDiv.dataset.sl = data.sl;
     cardDiv.dataset.signal = data.signal;
 
-    const signalClass = data.signal === 'BUY' ? 'signal-buy' : 'signal-sell';
+    const signalClass = data.signal === 'BUY'
+        ? 'signal-buy'
+        : data.signal === 'SELL'
+            ? 'signal-sell'
+            : '';
 
     cardDiv.innerHTML = `
         <div class="trade-header">
@@ -191,19 +206,19 @@ function addTradeCard(data) {
             </div>
             <div class="detail-row">
                 <span class="label">Price</span>
-                <span class="value" id="price">${data.current_price.toFixed(5)}</span>
+                <span class="value" id="price">${Number(data.current_price).toFixed(5)}</span>
             </div>
             <div class="detail-row">
                 <span class="label">Target</span>
-                <span class="value" id="target">${data.predicted_close.toFixed(5)}</span>
+                <span class="value" id="target">${Number(data.predicted_close).toFixed(5)}</span>
             </div>
             <div class="detail-row">
                 <span class="label">TP</span>
-                <span class="value" id="tp" style="color: var(--accent-color)">${data.tp.toFixed(5)}</span>
+                <span class="value" id="tp" style="color: var(--accent-color)">${Number(data.tp).toFixed(5)}</span>
             </div>
             <div class="detail-row">
                 <span class="label">SL</span>
-                <span class="value" id="sl" style="color: var(--loss-color)">${data.sl.toFixed(5)}</span>
+                <span class="value" id="sl" style="color: var(--loss-color)">${Number(data.sl).toFixed(5)}</span>
             </div>
         </div>
     `;
@@ -269,17 +284,31 @@ function updateMetricsUI(metrics) {
     const grid = document.getElementById('metricsGrid');
     
     if (!container || !grid) return;
+    if (!metrics || typeof metrics !== 'object') return;
+
+    const asNumber = (value, fallback = 0) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    };
     
     container.style.display = 'block';
+
+    const directionalAccuracy = asNumber(metrics.directional_accuracy, 0);
+    const winRate = asNumber(metrics.win_rate, 0);
+    const sharpe = asNumber(metrics.sharpe_ratio, 0);
+    const maxDrawdown = asNumber(metrics.max_drawdown, 0);
+    const f1Score = asNumber(metrics.f1_score, 0);
+    const expectancy = asNumber(metrics.expectancy, 0);
+    const rrRatio = asNumber(metrics.rrr_ratio ?? metrics.risk_reward, 0);
     
     const metricItems = [
-        { label: 'Directional Accuracy', value: (metrics.directional_accuracy * 100).toFixed(1) + '%', class: metrics.directional_accuracy > 0.5 ? 'positive' : '' },
-        { label: 'Win Rate', value: (metrics.win_rate * 100).toFixed(1) + '%', class: metrics.win_rate > 0.5 ? 'positive' : '' },
-        { label: 'Sharpe Ratio', value: (metrics.sharpe_ratio || 0).toFixed(2), class: (metrics.sharpe_ratio || 0) > 1.5 ? 'positive' : '' },
-        { label: 'Max Drawdown', value: ((metrics.max_drawdown || 0) * 100).toFixed(1) + '%', class: (metrics.max_drawdown || 0) > -0.15 ? 'positive' : 'negative' },
-        { label: 'F1 Score', value: (metrics.f1_score || 0).toFixed(2), class: (metrics.f1_score || 0) > 0.5 ? 'positive' : '' },
-        { label: 'Expectancy', value: (metrics.expectancy || 0).toFixed(4), class: (metrics.expectancy || 0) > 0 ? 'positive' : 'negative' },
-        { label: 'RR Ratio', value: (metrics.rrr_ratio || 0).toFixed(2), class: (metrics.rrr_ratio || 0) > 2.0 ? 'positive' : '' }
+        { label: 'Directional Accuracy', value: (directionalAccuracy * 100).toFixed(1) + '%', class: directionalAccuracy > 0.5 ? 'positive' : '' },
+        { label: 'Win Rate', value: (winRate * 100).toFixed(1) + '%', class: winRate > 0.5 ? 'positive' : '' },
+        { label: 'Sharpe Ratio', value: sharpe.toFixed(2), class: sharpe > 1.5 ? 'positive' : '' },
+        { label: 'Max Drawdown', value: (maxDrawdown * 100).toFixed(1) + '%', class: maxDrawdown > -0.15 ? 'positive' : 'negative' },
+        { label: 'F1 Score', value: f1Score.toFixed(2), class: f1Score > 0.5 ? 'positive' : '' },
+        { label: 'Expectancy', value: expectancy.toFixed(4), class: expectancy > 0 ? 'positive' : 'negative' },
+        { label: 'RR Ratio', value: rrRatio.toFixed(2), class: rrRatio > 2.0 ? 'positive' : '' }
     ];
     
     grid.innerHTML = metricItems.map(item => `

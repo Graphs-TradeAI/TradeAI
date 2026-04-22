@@ -102,6 +102,17 @@ class ModelRegistry:
 
         return None
 
+    def save_metrics(self, symbol: str, timeframe: str, metrics: dict) -> str:
+        path = os.path.join(
+            self._pair_dir(symbol, timeframe),
+            self.cfg["models"].get("metrics_filename", "metrics.json"),
+        )
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(metrics, f, indent=2)
+        logger.info("Saved metrics: %s", path)
+        return path
+
     def model_exists(self, symbol: str, timeframe: str) -> bool:
         return os.path.exists(self._pair_model_path(symbol, timeframe))
 
@@ -122,9 +133,27 @@ class ModelRegistry:
                         "path": self._pair_model_path(symbol, tf),
                         "directional_accuracy": metrics.get("directional_accuracy"),
                         "sharpe_ratio": metrics.get("sharpe_ratio"),
+                        "mae": metrics.get("mae"),
                     })
 
         return results
+
+    def select_best_available(self) -> Optional[dict]:
+        models = self.list_available()
+        if not models:
+            return None
+        # Prefer sharpe, then directional accuracy, then lower MAE.
+        def _score_key(item: dict):
+            sharpe = item.get("sharpe_ratio")
+            da = item.get("directional_accuracy")
+            mae = item.get("mae")
+            return (
+                float(sharpe) if sharpe is not None else float("-inf"),
+                float(da) if da is not None else float("-inf"),
+                -float(mae) if mae is not None else float("-inf"),
+            )
+
+        return sorted(models, key=_score_key, reverse=True)[0]
 
     # ─────────────────────────────────────────────
     # ── PATH HELPERS ──────────────────────────────────────────────────────────

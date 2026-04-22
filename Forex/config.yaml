@@ -49,9 +49,13 @@ training:
   train_ratio: 0.70
   val_ratio: 0.15
   # test_ratio = 1 - train - val = 0.15
+  random_seed: 42
+  min_sequences: 300          # minimum generated sequences required for training
   epochs: 100
   batch_size: 64
   learning_rate: 0.001
+  regression_loss_weight: 0.7     # multitask head weight (target_return)
+  classification_loss_weight: 0.3 # multitask head weight (target_direction)
   patience: 4               # EarlyStopping patience
   output_size: 5000          # candles to fetch for training
 
@@ -80,6 +84,7 @@ risk:
   atr_sl_multiplier: 1.5      # SL = entry ± (ATR × multiplier)
   atr_low_volatility_threshold: 0.0005  # Skip trade if ATR below this
   min_confidence_threshold: 0.55        # Skip trade if confidence below
+  hold_confidence_threshold: 0.55       # Force HOLD below this confidence
   max_trades_per_day: 5
   max_drawdown_limit: 0.15    # 15% max portfolio drawdown
   max_exposure_per_pair: 0.20 # 20% max exposure per currency pair
@@ -88,6 +93,9 @@ risk:
 backtesting:
   default_account_balance: 10000.0
   slippage_pips: 0.5          # Simulated spread/slippage
+  commission_per_trade: 0.0   # Flat commission in quote currency per trade
+  max_hold_candles: 50
+  allow_overlapping_positions: false
   lookback_days: 365          # Default historical window
   output_dir: "backtesting_results"
 

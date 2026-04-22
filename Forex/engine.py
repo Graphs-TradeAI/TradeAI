@@ -12,11 +12,9 @@ import numpy as np
 import pandas as pd
 
 from Forex.loader import DataLoader
-from Forex.indicators import build_features, get_feature_columns, get_indicator_snapshot
+from Forex.indicators import build_features, get_feature_columns
 from Forex.registry import ModelNotFoundError, ModelRegistry
 from Forex.risk_engine import RiskEngine
-from Forex.evaluator import Evaluator
-from Forex.preprocessor import Preprocessor
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +44,14 @@ class BacktestEngine:
 
         self.seq_length: int = train_cfg.get("sequence_length", 60)
         self.slippage: float = bt_cfg.get("slippage_pips", 0.5) / 10_000  # Convert pips → price
+        self.commission_per_trade: float = float(bt_cfg.get("commission_per_trade", 0.0))
+        self.max_hold_candles: int = int(bt_cfg.get("max_hold_candles", 50))
+        self.allow_overlapping_positions: bool = bool(bt_cfg.get("allow_overlapping_positions", False))
         self.output_dir: str = bt_cfg.get("output_dir", "backtesting_results")
 
         self.registry = ModelRegistry(models_root, self.cfg)
         self.loader = DataLoader(api_key, self.cfg, use_cache=True)
         self.risk_engine = RiskEngine(self.cfg)
-        self.evaluator = Evaluator()
 
 
 
@@ -67,6 +67,8 @@ class BacktestEngine:
     ) -> Dict:
 
         logger.info("Backtest: %s %s | balance=%.2f", symbol, timeframe, account_balance)
+        if step_size < 1:
+            raise ValueError("step_size must be >= 1")
 
         # 1. Load full historical data
         df_raw = self.loader.load(
@@ -81,8 +83,18 @@ class BacktestEngine:
         # Using build_features to match trainer/inference
         df_feat = build_features(df_raw, symbol=symbol, timeframe=timeframe)
         
-        # Feature columns: mirror trainer (exclude timestamp and target columns automatically)
-        feature_cols = get_feature_columns(df_feat)
+        # Feature columns: strict training contract when available.
+        metrics = self.registry.load_metrics(symbol, timeframe) or {}
+        expected_feature_cols = metrics.get("feature_columns")
+        if isinstance(expected_feature_cols, list) and expected_feature_cols:
+            missing = [c for c in expected_feature_cols if c not in df_feat.columns]
+            if missing:
+                raise RuntimeError(
+                    f"Cannot run backtest due to missing training features: {missing}"
+                )
+            feature_cols = expected_feature_cols
+        else:
+            feature_cols = get_feature_columns(df_feat)
 
         # 3. Load model (Scale-free regression)
         try:
@@ -100,20 +112,27 @@ class BacktestEngine:
         n = len(df_feat)
         min_idx = self.seq_length  # Need at least seq_length rows before first prediction
 
-        for i in range(min_idx, n - 1, step_size):
+        i = min_idx
+        while i < n - 1:
             # Slice sequence up to current candle (no future data)
             seq = X_all[i - self.seq_length : i]
             X = seq[np.newaxis, ...]
 
-            # Generate prediction (Regression: target_return)
+            # Generate prediction (legacy single-output or new dual-output model)
             raw = model.predict(X, verbose=0)
-            pred_return = float(raw[0][0])
-
+            pred_return, direction_probability = self._parse_model_output(raw)
             signal = "BUY" if pred_return > 0 else "SELL"
+            if direction_probability is not None:
+                signal = "BUY" if direction_probability >= 0.5 else "SELL"
             
             current_row = df_feat.iloc[i]
             atr_pct = float(current_row.get("atr_pct", 0.001))
-            confidence = min(abs(pred_return) / (atr_pct + 1e-9), 1.0)
+            reg_confidence = min(max(abs(pred_return) / (atr_pct + 1e-9), 0.0), 1.0)
+            if direction_probability is not None:
+                cls_confidence = min(max(abs(direction_probability - 0.5) * 2.0, 0.0), 1.0)
+                confidence = 0.6 * cls_confidence + 0.4 * reg_confidence
+            else:
+                confidence = reg_confidence
 
             entry_price = float(current_row["close"]) + (
                 self.slippage if signal == "BUY" else -self.slippage
@@ -135,6 +154,7 @@ class BacktestEngine:
             risk = self.risk_engine.assess(prediction_dict, equity, daily_count, current_dd)
 
             if not risk["should_trade"]:
+                i += step_size
                 continue
 
             stop_loss = risk["stop_loss"]
@@ -143,15 +163,23 @@ class BacktestEngine:
 
             # Simulate trade outcome (look at future candles)
             outcome, exit_price, exit_idx = self._simulate_trade(
-                df_feat, i + 1, signal, entry_price, stop_loss, take_profit
+                df_feat,
+                i + 1,
+                signal,
+                entry_price,
+                stop_loss,
+                take_profit,
+                max_hold=self.max_hold_candles,
             )
 
             # Calculate PnL
             if signal == "BUY":
-                pnl = (exit_price - entry_price) * position_size
+                pnl_gross = (exit_price - entry_price) * position_size
             else:
-                pnl = (entry_price - exit_price) * position_size
+                pnl_gross = (entry_price - exit_price) * position_size
 
+            commission = self.commission_per_trade
+            pnl = pnl_gross - commission
             equity += pnl
             equity = max(equity, 0.0)  # No margin calls below 0
             equity_curve.append(round(equity, 2))
@@ -170,10 +198,23 @@ class BacktestEngine:
                 "take_profit": take_profit,
                 "position_size": position_size,
                 "outcome": outcome,
+                "pnl_gross": round(pnl_gross, 4),
+                "commission": round(commission, 4),
                 "pnl": round(pnl, 4),
                 "equity": round(equity, 2),
                 "confidence": round(confidence, 4),
+                "direction_probability": (
+                    round(float(direction_probability), 4)
+                    if direction_probability is not None
+                    else None
+                ),
             })
+
+            if self.allow_overlapping_positions:
+                i += step_size
+            else:
+                # Event-driven progression: wait until the current trade closes.
+                i = max(i + step_size, exit_idx + 1)
 
         # 5. Compute report metrics
         report = self._compute_report(trade_log, equity_curve, account_balance, symbol, timeframe)
@@ -195,6 +236,34 @@ class BacktestEngine:
             "equity_curve": equity_curve,
         }
 
+    @staticmethod
+    def _parse_model_output(raw_output):
+        """
+        Parse keras predict output into:
+        (predicted_log_return, direction_probability_or_none)
+        """
+        if isinstance(raw_output, dict):
+            reg = raw_output.get("return_head")
+            cls = raw_output.get("direction_head")
+            pred_return = float(np.ravel(reg)[0]) if reg is not None else 0.0
+            direction_probability = float(np.ravel(cls)[0]) if cls is not None else None
+            if direction_probability is not None:
+                direction_probability = min(max(direction_probability, 0.0), 1.0)
+            return pred_return, direction_probability
+
+        if isinstance(raw_output, (list, tuple)):
+            if len(raw_output) == 0:
+                raise ValueError("Empty model prediction output")
+            pred_return = float(np.ravel(raw_output[0])[0])
+            direction_probability = None
+            if len(raw_output) >= 2 and raw_output[1] is not None:
+                direction_probability = float(np.ravel(raw_output[1])[0])
+                direction_probability = min(max(direction_probability, 0.0), 1.0)
+            return pred_return, direction_probability
+
+        pred_return = float(np.ravel(raw_output)[0])
+        return pred_return, None
+
     # ──────────────────────────────────────────────────────────────────────
     # Internal simulation
     # ──────────────────────────────────────────────────────────────────────
@@ -207,7 +276,7 @@ class BacktestEngine:
         entry_price: float,
         stop_loss: float,
         take_profit: float,
-        max_hold: int = 50,
+        max_hold: int,
     ):
      
         n = len(df)
@@ -250,6 +319,7 @@ class BacktestEngine:
             }
 
         pnls = np.array([t["pnl"] for t in trade_log])
+        commissions = np.array([t.get("commission", 0.0) for t in trade_log])
         wins = pnls[pnls > 0]
         losses = pnls[pnls <= 0]
 
@@ -288,6 +358,7 @@ class BacktestEngine:
             "profit_factor": round(profit_factor, 4),
             "gross_profit": round(gross_profit, 4),
             "gross_loss": round(gross_loss, 4),
+            "total_commission": round(float(commissions.sum()), 4),
             "initial_balance": initial_balance,
             "final_balance": round(final_balance, 2),
             "avg_pnl": round(float(np.mean(pnls)), 4),

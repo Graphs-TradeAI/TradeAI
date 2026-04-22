@@ -214,7 +214,7 @@ Indicators: {prediction_data.get('indicators', {})}
         if isinstance(cci, (int, float)):
             reasoning_lines.append(f"> CCI is positioned at {cci:.1f}, confirming the {regime} classification.")
 
-        reasoning = "\\n".join(reasoning_lines)
+        reasoning = "\n".join(reasoning_lines)
 
         return {
             "signal": signal,

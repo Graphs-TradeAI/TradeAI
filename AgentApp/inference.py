@@ -2,18 +2,9 @@
 from __future__ import annotations
 
 import logging
-import os
-import sys
+from typing import Optional
 
 from django.conf import settings
-
-# Ensure MLmodels is importable from Django context
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MLMODELS_PATH = os.path.join(BASE_DIR, "Forex", "Models")
-if MLMODELS_PATH not in sys.path:
-    sys.path.insert(0, os.path.join(BASE_DIR, "Forex", "Models"))
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
 
 logger = logging.getLogger(__name__)
 
@@ -51,20 +42,15 @@ class ModelInference:
         account_balance: float = 10_000.0,
         daily_trade_count: int = 0,
         current_drawdown: float = 0.0,
+        output_size: int = 500,
     ) -> dict:
-        """
-        Full prediction pipeline: inference → risk assessment → structured output.
-
-        Returns
-        -------
-        dict with all fields needed by views.py and llm_service.py:
-            symbol, timeframe, signal, confidence, predicted_price,
-            current_price, risk_level, regime, indicators,
-            stop_loss (sl), take_profit (tp), position_size, should_trade,
-            trend, momentum, volatility (for LLM compat)
-        """
+      
         # 1. Model prediction
-        pred = self.predictor.predict(symbol=symbol, timeframe=timeframe)
+        pred = self.predictor.predict(
+            symbol=symbol,
+            timeframe=timeframe,
+            output_size=output_size,
+        )
 
         # 2. Risk assessment
         risk = self.risk_engine.assess(
@@ -77,7 +63,7 @@ class ModelInference:
         # 3. Merge into unified response dict
         indicators = pred.get("indicators", {})
         result = {
-            # Core prediction
+        
             "symbol": symbol,
             "timeframe": timeframe,
             "signal": pred["signal"],
@@ -91,7 +77,7 @@ class ModelInference:
             "risk_level": pred.get("risk_level", "MEDIUM"),
             "model_source": pred.get("model_source", ""),
             "timestamp": pred.get("timestamp", ""),
-            # Risk management
+        
             "stop_loss": risk["stop_loss"],
             "take_profit": risk["take_profit"],
             "sl": risk["stop_loss"],   # short aliases
@@ -105,7 +91,11 @@ class ModelInference:
             # Indicators
             "indicators": indicators,
             # LLM-layer compatibility fields (old api_chat)
-            "trend": "bullish" if pred["signal"] == "BUY" else "bearish",
+            "trend": (
+                "bullish" if pred["signal"] == "BUY"
+                else "bearish" if pred["signal"] == "SELL"
+                else "neutral"
+            ),
             "trend_strength": "strong" if pred["confidence"] > 0.65 else "moderate",
             "momentum": "positive" if indicators.get("macd_diff", 0) > 0 else "negative",
             "stochastic": f"K={indicators.get('stoch_k', 50):.1f}",
@@ -119,8 +109,8 @@ class ModelInference:
         timeframe: str = "1h",
         account_balance: float = 10_000.0,
         lookback_days: int = 365,
-        start_date: str = None,
-        end_date: str = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
     ) -> dict:
         """Run a full backtest via BacktestEngine."""
         from Forex.engine import BacktestEngine
@@ -136,8 +126,8 @@ class ModelInference:
 
     def calculate_model_metrics(
         self,
-        symbol: str = "AUD/USD",
-        timeframe: str = "1h",
+        symbol: str,
+        timeframe: str,
         n_backtest: int = 100,
     ) -> dict:
         """
@@ -149,13 +139,19 @@ class ModelInference:
             registry = ModelRegistry()
             metrics = registry.load_metrics(symbol, timeframe)
             if metrics:
-                return metrics
+                return self._normalize_metrics(metrics, n_backtest=n_backtest)
         except Exception as exc:
             logger.warning("Could not load saved metrics: %s", exc)
 
         try:
-            # Real-time backtest to generate dynamic metrics
-            result = self.run_backtest(symbol=symbol, timeframe=timeframe, lookback_days=30)
+            result = self.run_backtest(
+                symbol=symbol,
+                timeframe=timeframe,
+                account_balance=10_000.0,
+                lookback_days=30,
+                start_date=None,
+                end_date=None,
+            )
             report = result["report"]
             
             gross_profit = report.get("gross_profit", 0)
@@ -181,16 +177,43 @@ class ModelInference:
             }
         except Exception as e:
             logger.error("Real-time backtest generation failed: %s", e)
-            # Safe Fallback if network/data fails
+            # Conservative fallback when data/model is unavailable.
             return {
-                "directional_accuracy": 0.684,
-                "f1_score": 0.72,
-                "win_rate": 0.625,
-                "risk_reward": 2.15,
-                "rrr_ratio": 2.15,
-                "expectancy": 0.18,
-                "sharpe_ratio": 1.92,
-                "profit_factor": 1.45,
-                "max_drawdown": -0.11,
+                "directional_accuracy": 0.0,
+                "f1_score": 0.0,
+                "win_rate": 0.0,
+                "risk_reward": 0.0,
+                "rrr_ratio": 0.0,
+                "expectancy": 0.0,
+                "sharpe_ratio": 0.0,
+                "profit_factor": 0.0,
+                "max_drawdown": 0.0,
                 "n_backtest": n_backtest or 100,
+                "error": str(e),
             }
+
+    @staticmethod
+    def _normalize_metrics(metrics: dict, n_backtest: int = 100) -> dict:
+        """Normalize mixed metric schemas into one stable API contract."""
+        max_dd = metrics.get("max_drawdown")
+        if max_dd is None and metrics.get("max_drawdown_pct") is not None:
+            max_dd = float(metrics["max_drawdown_pct"]) / 100.0
+
+        directional_accuracy = float(metrics.get("directional_accuracy", 0.0) or 0.0)
+        win_rate = float(metrics.get("win_rate", directional_accuracy) or 0.0)
+        sharpe_ratio = float(metrics.get("sharpe_ratio", 0.0) or 0.0)
+        expectancy = float(metrics.get("expectancy", metrics.get("avg_pnl", 0.0)) or 0.0)
+        risk_reward = float(metrics.get("risk_reward", metrics.get("rrr_ratio", 0.0)) or 0.0)
+
+        return {
+            "directional_accuracy": directional_accuracy,
+            "f1_score": float(metrics.get("f1_score", directional_accuracy) or directional_accuracy),
+            "win_rate": win_rate,
+            "risk_reward": risk_reward,
+            "rrr_ratio": risk_reward,
+            "expectancy": expectancy,
+            "sharpe_ratio": sharpe_ratio,
+            "profit_factor": float(metrics.get("profit_factor", 0.0) or 0.0),
+            "max_drawdown": float(max_dd or 0.0),
+            "n_backtest": int(metrics.get("n_backtest", metrics.get("n_test", n_backtest)) or n_backtest),
+        }

@@ -32,9 +32,9 @@ def verify_ml_pipeline():
         
         # DEBUG: Check features
         df_raw = predictor.loader.load_for_inference(symbol, timeframe, output_size=500)
-        from Forex.processing import build_forex_feature_set
-        df_feat = build_forex_feature_set(df_raw, symbol=symbol, timeframe=timeframe)
-        feature_cols = [c for c in df_feat.columns if c not in ("timestamp", "target_price", "target_return")]
+        from Forex.indicators import build_features, get_feature_columns
+        df_feat = build_features(df_raw, symbol=symbol, timeframe=timeframe)
+        feature_cols = get_feature_columns(df_feat)
         logger.info(f"Feature count: {len(feature_cols)}")
         logger.info(f"Features: {feature_cols}")
         

@@ -1,14 +1,12 @@
 from __future__ import annotations
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 import pandas as pd
 import requests
 from dotenv import load_dotenv
 load_dotenv()
-import os
-TWELVE_DATA_API_KEY=os.getenv("TWELVE_DATA_API_KEY")
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +35,7 @@ class TwelveDataClient:
     def get_forex_history(
         self,
         symbol: str = "AUD/USD",
-        interval: str = "1day",
+        interval: str = "5min",
         output_size: int = 5000,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
@@ -194,8 +192,3 @@ class TwelveDataClient:
 
         logger.debug("Parsed %d rows for %s %s", len(df), symbol, interval)
         return df
-
-''''client=TwelveDataClient(TWELVE_DATA_API_KEY)
-df=client.get_forex_history()
-
-print(df.tail())'''

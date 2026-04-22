@@ -1,17 +1,15 @@
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from .forms import SignupForm, LoginForm
 import json
 import logging
 import os
-import sys
 import markdown
 from .inference import ModelInference
 from .llm_service import LLMService
-from decouple import config
 from django.conf import settings
 from .models import Trade, TraderProfile
 
@@ -43,8 +41,7 @@ def logout_view(request):
     return redirect('login')
 
 def forgot_password_view(request):
-    
-    return render(request, 'forgot_password.html')
+    return redirect('password_reset')
 
 @login_required
 def dashboard_view(request):
@@ -60,40 +57,40 @@ def privacy_policy_view(request):
 def landing_page(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
-    
-    # Calculate Backtest Metrics for EURJPY 1h
-    symbol = "EUR/JPY"
+
+    # Use a supported default pair/timeframe for landing metrics.
+    symbol = "AUD/USD"
     timeframe = "1h"
-    
+
     inference = ModelInference(api_key=settings.TWELVE_DATA_API_KEY)
     metrics = None
     try:
-        # Attempt real backtest (might fail if network or model is missing)
         metrics = inference.calculate_model_metrics(symbol, timeframe, n_backtest=100)
     except Exception as e:
-        print(f"Backtest calculation error: {str(e)}")
-    
-    # Fallback to high-quality realistic metrics if calculation fails
-    # This ensures the landing page always shows impressive performance data
+        logger.warning("Backtest calculation error on landing page: %s", e)
+
+    # Conservative fallback to avoid displaying fabricated performance.
     if not metrics:
         metrics = {
-            "directional_accuracy": 0.684,
-            "win_rate": 0.625,
-            "risk_reward": 2.15,
-            "expectancy": 0.18,
-            "sharpe_ratio": 1.92,
-            "n_backtest": 500
+            "directional_accuracy": 0.0,
+            "win_rate": 0.0,
+            "risk_reward": 0.0,
+            "expectancy": 0.0,
+            "sharpe_ratio": 0.0,
+            "n_backtest": 0,
         }
-    
+
+    risk_reward = float(metrics.get("risk_reward", metrics.get("rrr_ratio", 0.0)) or 0.0)
+
     # Format metrics for display
     display_metrics = {
-        "accuracy": f"{metrics['directional_accuracy'] * 100:.1f}%",
-        "win_rate": f"{metrics['win_rate'] * 100:.1f}%",
-        "rr_ratio": f"1:{metrics.get('risk_reward', metrics.get('rrr_ratio', 2.15)):.1f}",
-        "sharpe": f"{metrics['sharpe_ratio']:.2f}",
-        "n_bars": metrics['n_backtest']
+        "accuracy": f"{float(metrics.get('directional_accuracy', 0.0)) * 100:.1f}%",
+        "win_rate": f"{float(metrics.get('win_rate', 0.0)) * 100:.1f}%",
+        "rr_ratio": f"1:{risk_reward:.1f}",
+        "sharpe": f"{float(metrics.get('sharpe_ratio', 0.0)):.2f}",
+        "n_bars": int(metrics.get('n_backtest', 0) or 0),
     }
-    
+
     return render(request, 'landing.html', {'backtest_metrics': display_metrics})
 
 def demo(request):
@@ -284,7 +281,8 @@ def api_models(request):
         from .selection_agent import ModelSelectionAgent
         agent = ModelSelectionAgent()
         models = agent.list_available_models()
-        return JsonResponse({"models": models})
+        best = agent.select_best_model()
+        return JsonResponse({"models": models, "recommended_model": best})
     except Exception as exc:
         logger.exception("api_models error")
         return JsonResponse({"error": str(exc)}, status=500)
